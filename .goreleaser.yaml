@@ -24,10 +24,6 @@ builds:
     flags:
       - -trimpath
 
-
-gomod:
-  proxy: true
-
 archives:
   - name_template: "{{.ProjectName}}_{{.Os}}_{{.Arch}}"
     files:

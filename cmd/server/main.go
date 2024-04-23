@@ -37,7 +37,12 @@ type Config struct {
 	server.ServerConfig
 }
 
-var Version string
+// Build info populated by goreleaser
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
 
 func main() {
 
@@ -47,7 +52,7 @@ func main() {
 	})
 
 	if conf.Version {
-		fmt.Printf("Version: %s\n", Version)
+		fmt.Printf("Version: %s\nCommit: %s\nBuilt: %s\n", version, commit, date)
 		os.Exit(0)
 	}
 
