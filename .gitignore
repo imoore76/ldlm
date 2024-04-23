@@ -1,0 +1,8 @@
+.*
+!/.gitignore
+/build
+
+# Added by vscode's C# extension
+/go-ldlm.sln
+/examples/c#/obj
+/examples/c#/bin
