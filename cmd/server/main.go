@@ -32,9 +32,12 @@ import (
 // Configurature struct for app configuration
 type Config struct {
 	ConfigFile config.File `desc:"Path to yaml configuration file" default:"" short:"c"`
+	Version    bool        `desc:"Show version and exit" default:"false"`
 	constants.LogLevelConfig
 	server.ServerConfig
 }
+
+var Version string
 
 func main() {
 
@@ -42,6 +45,11 @@ func main() {
 		EnvPrefix: constants.ConfigEnvPrefix,
 		Args:      os.Args[1:],
 	})
+
+	if conf.Version {
+		fmt.Printf("Version: %s\n", Version)
+		os.Exit(0)
+	}
 
 	log.SetLevel(conf.LogLevel)
 

@@ -1,6 +1,9 @@
 .*
 !/.gitignore
+!/.github
+!/.goreleaser.yaml
 /build
+/dist
 
 # Added by vscode's C# extension
 /go-ldlm.sln

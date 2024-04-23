@@ -1,0 +1,60 @@
+builds:
+  - binary: ldlm-lock
+    id: ldlm-lock
+    main: ./cmd/lock
+    targets:
+      - "windows_amd64"
+      - "linux_amd64"
+      - "linux_arm64"
+      - "darwin_amd64"
+      - "darwin_arm64"
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    flags:
+      - -trimpath
+  - binary: ldlm-server
+    id: ldlm-server
+    main: ./cmd/server
+    targets:
+      - "windows_amd64"
+      - "linux_amd64"
+      - "linux_arm64"
+      - "darwin_amd64"
+      - "darwin_arm64"
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    flags:
+      - -trimpath
+
+
+gomod:
+  proxy: true
+
+archives:
+  - name_template: "{{.ProjectName}}_{{.Os}}_{{.Arch}}"
+    files:
+      - README.md
+      - LICENSE
+      - examples/
+    format_overrides:
+      - goos: windows
+        format: zip
+
+release:
+  draft: true
+
+snapshot:
+  name_template: "{{.Tag}}"
+
+checksum:
+  name_template: "ldlm_checksums.txt"
+
+nfpms:
+  - vendor: imoore76@yahoo.com
+    homepage: https://github.com/imoore76/go-ldlm
+    maintainer: Ian Moore <imoore76@yahoo.com>
+    description: Light weight Distributed Lock Manager server implemented over gRPC
+    license: Apache 2.0
+    formats:
+      - deb
+      - rpm
+    file_name_template: "{{.ProjectName}}_{{.Os}}_{{.Arch}}"
+

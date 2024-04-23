@@ -179,7 +179,7 @@ tasks:
   license_headers:
     desc: "Make sure source files have headers"
     cmds:
-      - addlicense -check -ignore **/.* ./
+      - addlicense -check -ignore '**/.*' -ignore '.*/**' ./
 
   add_license_headers:
     desc: "Make sure source files have headers"
@@ -187,7 +187,7 @@ tasks:
     preconditions:
       - test "{{.CLI_ARGS}}" != ""
     cmds:
-      - addlicense -ignore **/.* ./ {{.CLI_ARGS}}
+      - addlicense -ignore '**/.*' -ignore '.*/**' ./ {{.CLI_ARGS}}
 
   check_readme_google:
     desc: "Make sure README.md has common items"
