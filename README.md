@@ -14,22 +14,22 @@ ldlm is a lightweight distributed lock manager implemented over gRPC.
 
 | Short | Long                       | Default                         | Description                                                                                                                                                                                    |
 |:----- |:-------------------------- |:-------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-c`  | `--config_file`            |                                 | Path to [configuration file](#configuration-file-format).                                                                                                                                      |
-| `-d`  | `--default_lock_timeout`   | 10m                             | The lock timeout applied to all locks loaded from the state file (if configured) at startup                                                                                                    |
-| `-k`  | `--keepalive_interval`     | 1m                              | The frequency at which to send gRCP keepalive requests to connected clients.                                                                                                                   |
-| `-t`  | `--keepalive_timeout`      | 10s                             | The time to wait for a client to respond to the gRPC keepalive request before considering it dead. This will clear all locks held by the client unless `no_clear_on_disconnect` is also set.   |
-| `-l`  | `--listen_address`         | localhost:3144                  | Host and port on which to listen.                                                                                                                                                              |
-| `-g`  | `--lock_gc_interval`       | 30m                             | How often to perform garbage collection (deletion) of idle locks.                                                                                                                              |
-| `-m`  | `--lock_gc_min_idle`       | 5m                              | Minimum time a lock has to be idle (no unlocks or locks) before being considered for garbage collection. Only unlocked locks can be garbage collected.                                         |
-| `-v`  | `--log_level`              | info                            | Log level of the server. debug, info, warn, or error                                                                                                                                           |
-|       | `--ipc_socket_file`        | &lt;platform dependent path&gt; | Path to the IPC socket file used for communication with the `ldlm-lock` command. Set to an empty string to disable IPC.                                                                        |
-| `-s`  | `--state_file`             |                                 | The file in which in which to store lock state each time a locking or unlocking operation is performed. If you want `ldlm` to maintain locks across restarts, point this at a persistent file. |
-| `-n`  | `--no_clear_on_disconnect` |                                 | Disable the default behavior of clearing locks held by clients when a client disconnect is detected.                                                                                           |
-|       | `--client_cert_verify`     |                                 | Require and verify TLS certificates of clients                                                                                                                                                 |
-|       | `--client_ca`              |                                 | Path to a file containing client CA's certificate. Setting this will automatically set `--client_cert_verify`.                                                                                 |
-|       | `--password`               |                                 | Require clients to specify this [password](#password). Clients do this by setting the [metadata](https://grpc.io/docs/guides/metadata/) `authorization` key.                                   |
-|       | `--tls_cert`               |                                 | Path to TLS certificate file to enable TLS                                                                                                                                                     |
-|       | `--tls_key`                |                                 | Path to TLS key file                                                                                                                                                                           |
+| `-c`  | `&#8209;&#8209;config_file`            |                                 | Path to [configuration file](#configuration-file-format).                                                                                                                                      |
+| `-d`  | `&#8209;&#8209;default_lock_timeout`   | 10m                             | The lock timeout applied to all locks loaded from the state file (if configured) at startup                                                                                                    |
+| `-k`  | `&#8209;&#8209;keepalive_interval`     | 1m                              | The frequency at which to send gRCP keepalive requests to connected clients.                                                                                                                   |
+| `-t`  | `&#8209;&#8209;keepalive_timeout`      | 10s                             | The time to wait for a client to respond to the gRPC keepalive request before considering it dead. This will clear all locks held by the client unless `no_clear_on_disconnect` is also set.   |
+| `-l`  | `&#8209;&#8209;listen_address`         | localhost:3144                  | Host and port on which to listen.                                                                                                                                                              |
+| `-g`  | `&#8209;&#8209;lock_gc_interval`       | 30m                             | How often to perform garbage collection (deletion) of idle locks.                                                                                                                              |
+| `-m`  | `&#8209;&#8209;lock_gc_min_idle`       | 5m                              | Minimum time a lock has to be idle (no unlocks or locks) before being considered for garbage collection. Only unlocked locks can be garbage collected.                                         |
+| `-v`  | `&#8209;&#8209;log_level`              | info                            | Log level of the server. debug, info, warn, or error                                                                                                                                           |
+|       | `&#8209;&#8209;ipc_socket_file`        | &lt;platform dependent path&gt; | Path to the IPC socket file used for communication with the `ldlm-lock` command. Set to an empty string to disable IPC.                                                                        |
+| `-s`  | `&#8209;&#8209;state_file`             |                                 | The file in which in which to store lock state each time a locking or unlocking operation is performed. If you want `ldlm` to maintain locks across restarts, point this at a persistent file. |
+| `-n`  | `&#8209;&#8209;no_clear_on_disconnect` |                                 | Disable the default behavior of clearing locks held by clients when a client disconnect is detected.                                                                                           |
+|       | `&#8209;&#8209;client_cert_verify`     |                                 | Require and verify TLS certificates of clients                                                                                                                                                 |
+|       | `&#8209;&#8209;client_ca`              |                                 | Path to a file containing client CA's certificate. Setting this will automatically set `&#8209;&#8209;client_cert_verify`.                                                                                 |
+|       | `&#8209;&#8209;password`               |                                 | Require clients to specify this [password](#password). Clients do this by setting the [metadata](https://grpc.io/docs/guides/metadata/) `authorization` key.                                   |
+|       | `&#8209;&#8209;tls_cert`               |                                 | Path to TLS certificate file to enable TLS                                                                                                                                                     |
+|       | `&#8209;&#8209;tls_key`                |                                 | Path to TLS key file                                                                                                                                                                           |
 
 ### Environment Variables
 
@@ -191,7 +191,7 @@ If a lock ever becomes deadlocked (this *should* not happen), you can unlock it 
 
 ### Password
 
-To require a password of connecting clients, use the `--password` option to `ldlm`. Optionally set it as an environment variable `LDLM_PASSWORD` or in a config file before running the server instead of having it visible in the process list.
+To require a password of connecting clients, use the `&#8209;&#8209;password` option to `ldlm`. Optionally set it as an environment variable `LDLM_PASSWORD` or in a config file before running the server instead of having it visible in the process list.
 
 The password must be specified an `authorization` key in the [metadata](https://grpc.io/docs/guides/metadata/) of client requests.
 
@@ -231,7 +231,7 @@ resp = stub.TryLock(
 
 ### Server TLS
 
-Enable server TLS by specifying `--tls_cert` and `--tls_key`. E.g.
+Enable server TLS by specifying `&#8209;&#8209;tls_cert` and `&#8209;&#8209;tls_key`. E.g.
 
 ```
 ldlm-server --tls_cert <cert_file_location> --tls_key <key_file_location>
@@ -246,13 +246,13 @@ The server startup logs should indicate that TLS is enabled
 
 ### Mutual TLS
 
-To enable client TLS certificate verification, use `--client_cert_verify`. If the CA that issued the client certs is not in a path searched by GO, you may also specify the path to the CA cert with `--client_ca`. These options should be combined with Server TLS options.
+To enable client TLS certificate verification, use `&#8209;&#8209;client_cert_verify`. If the CA that issued the client certs is not in a path searched by GO, you may also specify the path to the CA cert with `&#8209;&#8209;client_ca`. These options should be combined with Server TLS options.
 
 ```
 ldlm-server --tls_cert <cert_file_location> --tls_key <key_file_location> --client_ca <client ca cert file location>
 ```
 
-Specifying the client CA (`--client_ca`) will automatically enable client cert verification, so specifying `--client_cert_verify` is not needed in those cases.
+Specifying the client CA (`&#8209;&#8209;client_ca`) will automatically enable client cert verification, so specifying `&#8209;&#8209;client_cert_verify` is not needed in those cases.
 
 Go client
 
