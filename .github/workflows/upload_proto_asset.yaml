@@ -1,0 +1,30 @@
+name: "Upload Protobuf Fule"
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  release:
+    name: "Release"
+
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@v2"
+        
+      - name: "Get upload_url"
+        run: echo "::set-output name=upload_url::https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$(jq --raw-output '.release.id' $GITHUB_EVENT_PATH)/assets{?name,label}"  
+        id: release
+
+      - name: "Upload ldlm.proto"
+        uses: "actions/upload-release-asset@v1"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_GOREL }}
+        with:
+          asset_content_type: "text/plain"
+          asset_name: "ldlm.proto"
+          asset_path: "ldlm.proto"
+          upload_url: ${{ steps.release.outputs.upload_url }}
