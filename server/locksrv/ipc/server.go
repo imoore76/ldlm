@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
+	fp "path/filepath"
 	"runtime"
 	"sync"
 
@@ -138,7 +139,7 @@ func DefaultSocketPath() string {
 	if runtime.GOOS == "windows" {
 		return `\\.\pipe\ldlm-ipc`
 	}
-	return os.TempDir() + "ldlm-ipc.sock"
+	return fp.Join(os.TempDir(), "ldlm-ipc.sock")
 }
 
 // socketPathExists checks if socket file path exists
