@@ -4,7 +4,7 @@ ldlm is a lightweight distributed lock manager implemented over gRPC.
 
 ## Installation
 
-    go install github.com/imoore76/go-ldlm@latest
+Download and install the latest release from github for your os / arch. Packages for linux distributions are also available. Or run the docker image `ian76/ldlm:latest` from dockerhub.
 
 ## Server Usage
 

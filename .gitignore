@@ -2,6 +2,7 @@
 !/.gitignore
 !/.github
 !/.goreleaser.yaml
+!/.dockerfile
 /build
 /dist
 
