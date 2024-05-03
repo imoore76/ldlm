@@ -26,6 +26,7 @@ import (
 	"github.com/imoore76/go-ldlm/config"
 	"github.com/imoore76/go-ldlm/constants"
 	"github.com/imoore76/go-ldlm/log"
+	"github.com/imoore76/go-ldlm/net"
 	"github.com/imoore76/go-ldlm/server"
 )
 
@@ -34,7 +35,8 @@ type Config struct {
 	ConfigFile config.File `desc:"Path to yaml configuration file" default:"" short:"c"`
 	Version    bool        `desc:"Show version and exit" default:"false"`
 	constants.LogLevelConfig
-	server.ServerConfig
+	server.LockServerConfig
+	net.NetConfig
 }
 
 // Build info populated by goreleaser
@@ -58,8 +60,15 @@ func main() {
 
 	log.SetLevel(conf.LogLevel)
 
-	if stopper, err := server.Run(&conf.ServerConfig); err != nil {
-		os.Stderr.Write([]byte(fmt.Sprintf("server.RunServer() error starting server: %s\n", err)))
+	lockSrv, lockSrvCloser, err := server.New(&conf.LockServerConfig)
+	if err != nil {
+		os.Stderr.Write([]byte(fmt.Sprintf("server.New() error creating server: %s\n", err)))
+		os.Exit(1)
+	}
+
+	if netCloser, err := net.Run(lockSrv, &conf.NetConfig); err != nil {
+		lockSrvCloser()
+		os.Stderr.Write([]byte(fmt.Sprintf("net.Run() error starting server: %s\n", err)))
 		os.Exit(1)
 	} else {
 
@@ -69,7 +78,8 @@ func main() {
 
 		<-sigchan
 
-		stopper()
+		netCloser()
+		lockSrvCloser()
 	}
 
 }

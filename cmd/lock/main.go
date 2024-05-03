@@ -25,7 +25,7 @@ import (
 	"github.com/alecthomas/kong"
 
 	co "github.com/imoore76/go-ldlm/constants"
-	"github.com/imoore76/go-ldlm/server/locksrv/ipc"
+	"github.com/imoore76/go-ldlm/server/ipc"
 )
 
 // newClient creates a new ldlm IPC client.

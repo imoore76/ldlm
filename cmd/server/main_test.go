@@ -38,7 +38,7 @@ func init() {
 
 func runMain(t *testing.T) (out string, err string) {
 	cmd := exec.Command(os.Args[0], "-test.run="+t.Name())
-	cmd.Env = append(os.Environ(), "LDLM_SOCKET_FILE="+ipcSocketPath, "TEST_PASSTHROUGH=1")
+	cmd.Env = append(os.Environ(), "LDLM_SOCKET_FILE=", "TEST_PASSTHROUGH=1")
 	cmdout, cmderr := cmd.Output()
 	if cmdout != nil {
 		out = string(cmdout)
@@ -72,7 +72,7 @@ func TestServerHelp(t *testing.T) {
 
 func TestServerError(t *testing.T) {
 	if os.Getenv("TEST_PASSTHROUGH") == "1" {
-		os.Args = []string{"ldlm", "-l", "b.1.2.3:x"}
+		os.Args = []string{"ldlm", "-l", "b.1.2.3:x", "--ipc_socket_file", ""}
 		main()
 		os.Exit(0)
 	}
@@ -81,7 +81,7 @@ func TestServerError(t *testing.T) {
 
 	_, stderr := runMain(t)
 
-	assert.True(strings.Contains(stderr, "server.RunServer() error starting server: listen tcp: lookup tcp/x: unknown port"),
+	assert.True(strings.Contains(stderr, "error starting server: listen tcp: lookup tcp/x: unknown port"),
 		fmt.Sprintf("error string should be in output: %s", stderr))
 
 }

@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	log "log/slog"
 	"net"
 	"net/http"
@@ -31,8 +32,7 @@ import (
 	"runtime"
 	"sync"
 
-	pb "github.com/imoore76/go-ldlm/protos"
-	cl "github.com/imoore76/go-ldlm/server/locksrv/lockmap/clientlock"
+	cl "github.com/imoore76/go-ldlm/server/clientlock"
 )
 
 // errSocketExists is the error returned when a socket file already exists.
@@ -46,8 +46,8 @@ var errSocketExists = errors.New(
 // LockServer is an interface for interacting with locks. It must support
 // methods required by IPC commands
 type LockServer interface {
-	Locks() []cl.ClientLock
-	Unlock(context.Context, *pb.UnlockRequest) (*pb.UnlockResponse, error)
+	Locks() []cl.Lock
+	Unlock(context.Context, string, string) (bool, error)
 }
 
 // Config is the configuration for the IPC server.
@@ -74,20 +74,23 @@ var (
 )
 
 // setUp gets or creates the singleton IPC server and returns a cleanup func
-func setUp(l LockServer) func() {
+func setUp(l LockServer) {
 	setSingletonIpc()
 	singletonIpc.lckSrv = l
-
-	return func() {
-		// Delete ref to lock server
-		singletonIpc.lckSrv = nil
-	}
 }
 
-// Run starts the IPC server and returns a cleanup function and an error.
+// Run runs the IPC server with the provided LockServer and IPCConfig.
 //
-// It takes a LockServer and an IPCConfig pointer as parameters.
-// It returns a cleanup function and an error.
+// It sets up the IPC server, listens on the IPC socket, handles server start and shutdown,
+// and performs cleanup operations.
+// Parameters:
+//   - ctx: the context.Context for managing the lifecycle of the IPC server.
+//   - lsrv: the LockServer implementation for handling lock operations.
+//   - c: the IPCConfig containing IPC server configuration.
+//
+// Returns:
+//   - cleanup: a function that can be called to clean up the IPC server.
+//   - error: an error if the IPC server failed to start.
 func Run(lsrv LockServer, c *IPCConfig) (func(), error) {
 
 	if c.IPCSocketFile == "<platform specific>" {
@@ -98,23 +101,22 @@ func Run(lsrv LockServer, c *IPCConfig) (func(), error) {
 	}
 
 	if socketPathExists(c.IPCSocketFile) {
-		return func() {}, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"file: %s exists. %w", c.IPCSocketFile, errSocketExists)
 	}
 
 	// Set up the IPC server
-	closer := setUp(lsrv)
+	setUp(lsrv)
 
 	l, err := net.Listen("unix", c.IPCSocketFile)
 	if err != nil {
-		closer()
-		return func() {}, fmt.Errorf("ipc.Run() net.listen error: %w", err)
+		return nil, fmt.Errorf("ipc.Run() net.listen error: %w", err)
 	}
 	go http.Serve(l, nil)
 
 	log.Info("IPC server started", "socket", c.IPCSocketFile)
 
-	// Return a cleanup function
+	// Cleanup function
 	return func() {
 		log.Info("IPC server shutting down...")
 		// Close listener
@@ -122,9 +124,7 @@ func Run(lsrv LockServer, c *IPCConfig) (func(), error) {
 			log.Error("error closing listener: %v", err)
 		}
 
-		// IPC server cleanup
-		closer()
-
+		log.Info("IPC server shut down", "file", c.IPCSocketFile)
 		// Remove socket file
 		if socketPathExists(c.IPCSocketFile) {
 			if err := os.Remove(c.IPCSocketFile); err != nil {
@@ -145,5 +145,5 @@ func DefaultSocketPath() string {
 // socketPathExists checks if socket file path exists
 func socketPathExists(path string) bool {
 	_, err := os.Stat(path)
-	return !os.IsNotExist(err)
+	return !errors.Is(err, fs.ErrNotExist)
 }

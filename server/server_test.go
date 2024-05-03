@@ -12,245 +12,504 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package server_test
 
 import (
 	"context"
 	"fmt"
-	"log"
-	"net"
 	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/imoore76/go-ldlm/config"
 	con "github.com/imoore76/go-ldlm/constants"
-	pb "github.com/imoore76/go-ldlm/protos"
-	"github.com/imoore76/go-ldlm/server/locksrv"
+	"github.com/imoore76/go-ldlm/lock"
+	_ "github.com/imoore76/go-ldlm/log"
+	"github.com/imoore76/go-ldlm/server"
+	cl "github.com/imoore76/go-ldlm/server/clientlock"
+	"github.com/imoore76/go-ldlm/server/session/store"
 )
 
-func testingServer(conf *ServerConfig) (clientFactory func() (pb.LDLMClient, func()), closer func()) {
-	// from https://medium.com/@3n0ugh/how-to-test-grpc-servers-in-go-ba90fe365a18
-	buffer := 101024 * 1024
-	lis := bufconn.Listen(buffer)
+var defaultTestOpts = map[string]string{
+	"lock_gc_min_idle":     "1h",
+	"lock_gc_interval":     "1h",
+	"default_lock_timeout": "1h",
+}
 
-	tmpFile, _ := os.CreateTemp("", "ldlm-test-ipc-*")
-	tmpFile.Close()
+type testClient struct {
+	server *server.LockServer
+	ctx    context.Context
+	close  func()
+}
 
-	conf.LockSrvConfig.IPCConfig.IPCSocketFile = tmpFile.Name()
-	os.Remove(tmpFile.Name())
+func (t *testClient) Close() {
+	t.server.DestroySession(t.ctx)
+	t.close()
+}
 
-	server, lsStopperFunc := locksrv.New(&conf.LockSrvConfig)
-
-	grpcOpts := []grpc.ServerOption{
-		grpc.StatsHandler(server),
+func newTestClient(server *server.LockServer) *testClient {
+	_, ctx := server.CreateSession(context.Background(), nil)
+	ctx, cancel := context.WithCancel(ctx)
+	return &testClient{
+		ctx:    ctx,
+		server: server,
+		close:  cancel,
 	}
+}
 
-	if conf.Password != "" {
-		grpcOpts = append(grpcOpts, authPasswordInterceptor(conf.Password))
+func getTestConfig(opts map[string]string) *server.LockServerConfig {
+	confOptsMap := defaultTestOpts
+	for k, v := range opts {
+		confOptsMap[k] = v
 	}
+	confOpts := []string{"--ipc_socket_file", ""}
+	for k, v := range confOptsMap {
+		confOpts = append(confOpts, "--"+k, v)
+	}
+	return config.Configure[server.LockServerConfig](
+		&config.Options{EnvPrefix: con.TestConfigEnvPrefix, Args: confOpts},
+	)
+}
 
-	grpcServer := grpc.NewServer(grpcOpts...)
-	pb.RegisterLDLMServer(grpcServer, server)
+func TestLocking(t *testing.T) {
+	assert := assert.New(t)
 
-	// Blocking call
+	var client1Key, client2Key string
+	c := getTestConfig(nil)
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	client := newTestClient(s)
+	res, err := s.Lock(client.ctx, "testlock", nil, nil)
+	assert.Nil(err)
+	assert.True(res.Locked, "Could not obtain lock")
+	client1Key = res.Key
+
+	client2 := newTestClient(s)
+	res, err = s.TryLock(client2.ctx, "testlock", nil)
+	assert.Nil(err)
+	assert.False(res.Locked, "Locked when lock was held")
+	client2Key = res.Key
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
 	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			log.Printf("error serving server: %v", err)
+		// Wait for lock
+		started := time.Now()
+		res, err := s.Lock(client2.ctx, "testlock", nil, nil)
+		assert.Nil(err)
+		assert.True(res.Locked, "Lock should have been obtained")
+		assert.GreaterOrEqual(
+			time.Since(started),
+			(2 * time.Second),
+			"It should have been 2 or more seconds waiting to acquire lock",
+		)
+		client2Key = res.Key
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		unlocked, err := s.Unlock(client.ctx, "testlock", client1Key)
+		if err != nil {
+			// can't call t.FailNow from goroutine
+			panic(fmt.Sprintf("Error unlocking lock %v", err.Error()))
+		} else {
+			assert.Nil(nil)
+			assert.True(unlocked, "lock should be unlocked")
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	// This should fail because the key is incorrect
+	unlocked, err := s.Unlock(client.ctx, "testlock", client1Key)
+	assert.NotNil(err)
+	assert.False(unlocked, "lock should not be unlocked")
+	assert.Equal("invalid lock key", err.Error())
+
+	// This should succeed
+	unlocked, err = s.Unlock(client2.ctx, "testlock", client2Key)
+	assert.Nil(err)
+	assert.Nil(err)
+	assert.True(unlocked, "lock should be unlocked")
+
+}
+
+func TestClientDisconnectUnlock(t *testing.T) {
+	assert := assert.New(t)
+
+	c := getTestConfig(nil)
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	// client1 obtains "testlock"
+	client1 := newTestClient(s)
+	res, err := s.TryLock(client1.ctx, "testlock", nil)
+	assert.Nil(err)
+	assert.True(res.Locked)
+
+	// client2 obtains "testlock2"
+	client2 := newTestClient(s)
+	res, err = s.TryLock(client2.ctx, "testlock2", nil)
+	assert.Nil(err)
+	assert.True(res.Locked)
+
+	// client3 waits to obtain "testlock"
+	client3 := newTestClient(s)
+	done := make(chan struct{})
+	go func() {
+		// Wait for lock
+		started := time.Now()
+		res, err := s.Lock(client3.ctx, "testlock", nil, nil)
+		assert.Nil(err)
+		assert.True(res.Locked, "Lock should have been obtained")
+		assert.GreaterOrEqual(
+			time.Since(started),
+			(2 * time.Second),
+			"It should have been 2 or more seconds waiting to acquire lock",
+		)
+		done <- struct{}{}
+	}()
+
+	// Wait 2 seconds and close client1's connection
+	time.Sleep(2 * time.Second)
+	client1.Close()
+
+	// Wait for client3 to obtain "testlock", which it had been
+	// blocking on
+	<-done
+
+	// client1 disconnected and its locks have should be unlocked. Now client3
+	// holds "testlock". "testlock2" should still be held by client2 as the
+	// client connection cleanup should be restricted to locks held by client1
+	res, err = s.TryLock(client3.ctx, "testlock2", nil)
+	assert.Nil(err)
+	assert.False(res.Locked, "testlock2 should be held by client2")
+}
+
+func TestUnlockNotLocked(t *testing.T) {
+	assert := assert.New(t)
+
+	c := getTestConfig(nil)
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	client1 := newTestClient(s)
+	unlocked, err := s.Unlock(client1.ctx, "testlock", "somekey")
+	assert.NotNil(err)
+	assert.False(unlocked)
+	if err != nil {
+		assert.ErrorIs(err, lock.ErrLockDoesNotExist)
+	}
+}
+
+func TestLockEmptyName(t *testing.T) {
+	assert := assert.New(t)
+
+	c := getTestConfig(nil)
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	client1 := newTestClient(s)
+	res, err := s.Lock(client1.ctx, "", nil, nil)
+	assert.NotNil(err)
+	assert.False(res.Locked)
+	if err != nil {
+		assert.ErrorIs(err, server.ErrEmptyName)
+	}
+
+	res, err = s.TryLock(client1.ctx, "", nil)
+	assert.NotNil(err)
+	assert.False(res.Locked)
+	if err != nil {
+		assert.ErrorIs(err, server.ErrEmptyName)
+	}
+
+}
+
+func TestLockWaitTimeout(t *testing.T) {
+	assert := assert.New(t)
+
+	c := getTestConfig(nil)
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	// Client1 holds lock
+	client1 := newTestClient(s)
+	res, err := s.TryLock(client1.ctx, "testlock", nil)
+	assert.Nil(err)
+	assert.True(res.Locked)
+
+	// Client2 calls WaitLock with a timeout
+	client2 := newTestClient(s)
+	var to uint32 = 1
+	res2, err := s.Lock(client2.ctx, "testlock", nil, &to)
+
+	// The result is that a timeout error is returned
+	assert.NotNil(err)
+	assert.False(res2.Locked)
+	if err != nil {
+		assert.ErrorIs(err, server.ErrLockWaitTimeout)
+	}
+}
+
+func TestLockWaiterDisconnects(t *testing.T) {
+	assert := assert.New(t)
+
+	var client1Key string
+	c := getTestConfig(nil)
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	// client1 obtains lock
+	client1 := newTestClient(s)
+	res, err := s.TryLock(client1.ctx, "testlock", nil)
+	assert.Nil(err)
+	assert.True(res.Locked)
+	client1Key = res.Key
+
+	// client2 waits on lock
+	client2 := newTestClient(s)
+	go func() {
+		s.Lock(client2.ctx, "testlock", nil, nil)
+	}()
+	time.Sleep(2 * time.Second)
+
+	// client2 disconnects
+	client2.Close()
+
+	// client1 unlocks lock
+	unlocked, err := s.Unlock(client1.ctx, "testlock", client1Key)
+	assert.Nil(err)
+	assert.True(unlocked)
+
+	// Let other goroutines do their things
+	time.Sleep(1 * time.Second)
+
+	// client3 can obtain lock
+	// (lock is not deadlocked by being handed out to a disconnected client)
+	client3 := newTestClient(s)
+	res3, err := s.TryLock(client3.ctx, "testlock", nil)
+	assert.Nil(err)
+	assert.True(res3.Locked)
+}
+
+func TestLockTimerTimeout(t *testing.T) {
+	assert := assert.New(t)
+
+	c := getTestConfig(nil)
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	// Client1 holds lock
+	client1 := newTestClient(s)
+	client2 := newTestClient(s)
+
+	timeout := uint32(3)
+	res, err := s.TryLock(client1.ctx, "testlock", &timeout)
+	assert.Nil(err)
+	assert.True(res.Locked)
+	lockKey := res.Key
+
+	res, err = s.TryLock(client2.ctx, "testlock", nil)
+	assert.Nil(err)
+	assert.False(res.Locked, "Lock should not have been obtained")
+
+	wait := make(chan struct{})
+	var newLockKey string
+	go func() {
+		// Wait for lock
+		started := time.Now()
+		res, err := s.Lock(client2.ctx, "testlock", nil, nil)
+		assert.Nil(err)
+		assert.True(res.Locked, "Lock should have been obtained")
+		assert.GreaterOrEqual(
+			time.Since(started),
+			(2 * time.Second),
+			"It should have been 2 or more seconds waiting to acquire lock",
+		)
+		newLockKey = res.Key
+		wait <- struct{}{}
+	}()
+
+	<-wait
+
+	unlocked, err := s.Unlock(client1.ctx, "testlock", lockKey)
+	assert.NotNil(err)
+	assert.False(unlocked, "lock should not be unlocked")
+	assert.ErrorIs(err, lock.ErrInvalidLockKey)
+
+	unlocked, err = s.Unlock(client2.ctx, "testlock", newLockKey)
+	assert.Nil(err)
+	assert.True(unlocked, "lock should be unlocked")
+}
+
+func TestLockTimerRefresh(t *testing.T) {
+	assert := assert.New(t)
+
+	c := getTestConfig(nil)
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	// Client1 holds lock
+	client1 := newTestClient(s)
+	client2 := newTestClient(s)
+
+	timeout := uint32(1)
+	res, err := s.TryLock(client1.ctx, "testlock", &timeout)
+	assert.Nil(err)
+	assert.True(res.Locked, "Client1 should have obtained lock")
+	lockKey := res.Key
+
+	refreshStop := make(chan struct{})
+	refreshStopped := make(chan struct{})
+	go func() {
+		// Wait for lock
+		for {
+			time.Sleep(500 * time.Millisecond)
+			select {
+			case <-refreshStop:
+				refreshStopped <- struct{}{}
+				return
+			default:
+				res, err := s.RefreshLock(client1.ctx, "testlock", lockKey, 1)
+				assert.Nil(err)
+				assert.True(res.Locked, "Client1 should have refreshed lock")
+			}
 		}
 	}()
 
-	closer = func() {
-		err := lis.Close()
-		if err != nil {
-			log.Printf("error closing listener: %v", err)
-		}
-		lsStopperFunc()
-		grpcServer.Stop()
-		os.Remove(tmpFile.Name())
-	}
-
-	// Factory function for generating clients connected to this server instance
-	clientFactory = func() (pb.LDLMClient, func()) {
-		conn, err := grpc.DialContext(context.Background(), "",
-			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-				return lis.Dial()
-			}), grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			panic(fmt.Sprintf("error connecting to server: %v", err))
-		}
-		// Return client and a client connection closer
-		return pb.NewLDLMClient(conn), func() { conn.Close() }
-	}
-
-	return clientFactory, closer
-}
-
-func TestRun(t *testing.T) {
-	conf := config.Configure[ServerConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-	conf.ListenAddress = "127.0.0.1:0"
-
-	shutdown, err := Run(conf)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Test that the function starts the gRPC server successfully
-	if shutdown == nil {
-		t.Error("expected non-nil shutdown function")
-	}
-
-	// Test that the function returns a function to gracefully shut down the
-	// server and no error
-	shutdown()
-}
-
-func TestRun_ListenError(t *testing.T) {
-	conf := config.Configure[ServerConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-	conf.ListenAddress = "x2"
-
-	_, err := Run(conf)
-	if err == nil {
-		t.Error("expected error but got nil")
-	} else if err.Error() != "listen tcp: address x2: missing port in address" {
-		t.Errorf("expected %s but got nil %s", "listen tcp: address x2: missing port in address", err.Error())
-	}
-}
-
-func TestRun_UseTLSConfig(t *testing.T) {
-	cases := map[string]struct {
-		args     []string
-		expected bool
-		err      string
-	}{
-		"cert_and_key": {
-			args: []string{
-				"--tls_cert", "../testcerts/server_cert.pem",
-				"--tls_key", "../testcerts/server_key.pem",
-			},
-			expected: true,
-		},
-		"just_key": {
-			args: []string{
-				"--tls_key", "../testcerts/server_key.pem",
-			},
-			expected: false,
-		},
-		"client_cert_verify": {
-			args: []string{
-				"--client_cert_verify",
-			},
-			expected: false,
-			err:      "client TLS certificate verification requires server TLS to be configured",
-		},
-		"client_ca": {
-			args: []string{
-				"--client_ca", "../testcerts/ca_cert.pem",
-			},
-			expected: false,
-			err:      "client TLS certificate verification requires server TLS to be configured",
-		},
-		"none": {
-			args:     []string{},
-			expected: false,
-		},
-	}
-
-	for name, c := range cases {
-		conf := config.Configure[ServerConfig](
-			&config.Options{EnvPrefix: con.TestConfigEnvPrefix, Args: c.args},
-		)
-
-		creds, err := loadTLSCredentials(conf)
-		if c.err != "" {
-			assert.EqualError(t, err, c.err, "Test case %s failed", name)
-			continue
-		} else {
-			assert.Nil(t, err, "Test case %s failed", name)
-		}
-		assert.True(t, (creds != nil) == c.expected, "Test case %s failed", name)
-	}
-}
-
-func TestRun_TLSOptions(t *testing.T) {
-	assert := assert.New(t)
-
-	conf := config.Configure[ServerConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-	conf.TlsCert = "../testcerts/server_cert.pem"
-	conf.TlsKey = "../testcerts/server_key.pem"
-	conf.ClientCA = "../testcerts/client_ca_cert.pem"
-
-	tcreds, err := loadTLSCredentials(conf)
-
-	assert.NoError(err)
-	assert.NotNil(tcreds)
-}
-
-func TestRun_PasswordNotSupplied(t *testing.T) {
-	assert := assert.New(t)
-	c := config.Configure[ServerConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
-	c.Password = "password"
-
-	mkClient, closer := testingServer(c)
-	defer closer()
-	client, _ := mkClient()
-	_, err := client.TryLock(context.Background(), &pb.TryLockRequest{
-		Name: "testlock",
-	})
-	assert.NotNil(err)
-	assert.Equal(err.Error(), "rpc error: code = Unauthenticated desc = missing credentials")
-
-}
-
-func TestRun_PasswordWrong(t *testing.T) {
-	assert := assert.New(t)
-	c := config.Configure[ServerConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-	c.Password = "password"
-
-	ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "foo")
-
-	mkClient, closer := testingServer(c)
-	defer closer()
-	client, _ := mkClient()
-	_, err := client.TryLock(ctx, &pb.TryLockRequest{
-		Name: "testlock",
-	})
-	assert.NotNil(err)
-	assert.Equal(err.Error(), "rpc error: code = Unauthenticated desc = invalid credentials")
-}
-
-func TestRun_Password(t *testing.T) {
-	assert := assert.New(t)
-	c := config.Configure[ServerConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-	c.Password = "password"
-
-	ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", c.Password)
-	mkClient, closer := testingServer(c)
-	defer closer()
-
-	client, _ := mkClient()
-	res, err := client.TryLock(ctx, &pb.TryLockRequest{
-		Name: "testlock",
-	})
+	res, err = s.TryLock(client2.ctx, "testlock", nil)
 	assert.Nil(err)
-	assert.True(res.Locked)
-	assert.Nil(res.Error)
+	assert.False(res.Locked, "Lock should not have been obtained by client2")
+
+	var newLockKey string
+	lockObtained := make(chan struct{})
+	go func() {
+		// Wait for lock
+		started := time.Now()
+		res, err := s.Lock(client2.ctx, "testlock", nil, nil)
+		assert.Nil(err)
+		assert.True(res.Locked, "Lock should have been obtained by client2")
+		assert.GreaterOrEqual(
+			time.Since(started),
+			(3 * time.Second),
+			"It should have been 3 or more seconds waiting to acquire lock",
+		)
+		newLockKey = res.Key
+		lockObtained <- struct{}{}
+	}()
+
+	time.Sleep(3 * time.Second)
+	refreshStop <- struct{}{}
+	<-refreshStopped
+
+	<-lockObtained
+
+	unlocked, err := s.Unlock(client1.ctx, "testlock", lockKey)
+
+	assert.NotNil(err)
+	assert.False(unlocked, "lock should not be unlocked")
+	assert.ErrorIs(err, lock.ErrInvalidLockKey)
+
+	unlocked, err = s.Unlock(client2.ctx, "testlock", newLockKey)
+	assert.Nil(err)
+	assert.True(unlocked, "lock should be unlocked")
+
+}
+
+func TestLoadLocks(t *testing.T) {
+	assert := assert.New(t)
+
+	tmpfile, err := os.CreateTemp("", "ldlm-test-*")
+	assert.NoError(err)
+
+	c := getTestConfig(map[string]string{
+		"state_file": tmpfile.Name(),
+	})
+	c.DefaultLockTimeout = 2 * time.Second
+	assert.Equal(c.StateFile, tmpfile.Name())
+
+	rwr, err := store.New(c.StateFile)
+	assert.NoError(err)
+
+	rwr.Write(map[string][]cl.Lock{
+		"testkey": {cl.New("testlock", "testkey")},
+	})
+	rwr.Close()
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	client := newTestClient(s)
+	res, err := s.TryLock(client.ctx, "testlock", nil)
+	assert.Nil(err)
+	assert.False(res.Locked, "Locked when lock was held")
+
+	time.Sleep(2500 * time.Millisecond)
+
+	res, err = s.TryLock(client.ctx, "testlock", nil)
+	assert.Nil(err)
+	assert.True(res.Locked, "Could not obtain lock")
+
+}
+
+func TestLocksMethod_Empty(t *testing.T) {
+	assert := assert.New(t)
+
+	c := getTestConfig(map[string]string{
+		"state_file": "",
+	})
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	assert.Equal([]cl.Lock{}, s.Locks())
+
+}
+
+func TestLocksMethod_Some(t *testing.T) {
+	assert := assert.New(t)
+
+	c := getTestConfig(nil)
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	client1 := newTestClient(s)
+	lr1, err := s.TryLock(client1.ctx, "testlock", nil)
+	assert.Nil(err)
+	lr2, err := s.TryLock(client1.ctx, "testlock2", nil)
+	assert.Nil(err)
+
+	assert.Equal([]cl.Lock{
+		cl.New("testlock", lr1.Key),
+		cl.New("testlock2", lr2.Key),
+	}, s.Locks())
 }

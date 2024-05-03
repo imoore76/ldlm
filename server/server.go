@@ -13,181 +13,442 @@
 // limitations under the License.
 
 /*
-This file contains the server package's Run() function, config, and helpers
+This file contains the ldlm lock server. It exposes functions, not ports. For networking see the
+net package.
 */
 package server
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
+	"errors"
 	"fmt"
-	log "log/slog"
-	"net"
-	"os"
+	"log/slog"
+	"sync/atomic"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
-
-	pb "github.com/imoore76/go-ldlm/protos"
-	"github.com/imoore76/go-ldlm/server/locksrv"
+	"github.com/google/uuid"
+	"github.com/imoore76/go-ldlm/lock"
+	"github.com/imoore76/go-ldlm/log"
+	cl "github.com/imoore76/go-ldlm/server/clientlock"
+	"github.com/imoore76/go-ldlm/server/ipc"
+	"github.com/imoore76/go-ldlm/server/session"
+	"github.com/imoore76/go-ldlm/timer"
 )
 
-// The struct required to configure the server. See the config package
-type ServerConfig struct {
-	KeepaliveInterval time.Duration `desc:"Interval at which to send keepalive pings to client" default:"60s" short:"k"`
-	KeepaliveTimeout  time.Duration `desc:"Wait this duration for the ping ack before assuming the connection is dead" default:"10s" short:"t"`
-	ListenAddress     string        `desc:"Address (host:port) at which to listen" default:"localhost:3144" short:"l"`
-	TlsCert           string        `desc:"File containing TLS certificate" default:""`
-	TlsKey            string        `desc:"File containing TLS key" default:""`
-	ClientCertVerify  bool          `desc:"Verify client certificate" default:"false"`
-	ClientCA          string        `desc:"File containing client CA certificate. This will also enable client cert verification." default:""`
-	Password          string        `desc:"Password required of clients" default:""`
-	locksrv.LockSrvConfig
+var (
+	ErrEmptyName                    = errors.New("lock name cannot be empty")
+	ErrLockWaitTimeout              = errors.New("timeout waiting to acquire lock")
+	ErrLockDoesNotExistOrInvalidKey = errors.New("lock does not exist or invalid key")
+	ErrSessionDoesNotExist          = errors.New("session does not exist")
+)
+
+// Lock server
+type LockServer struct {
+	lockMgr             lockManager
+	sessMgr             sessionManager
+	lockTimerMgr        timerManager
+	isShutdown          atomic.Bool
+	noClearOnDisconnect bool
 }
 
-// Run initializes and starts the gRPC server.
+// New creates a new lock server.
 //
-// It takes a configuration struct as input.
-// Returns a function to shut down the server and an error.
-func Run(conf *ServerConfig) (func(), error) {
+// It initializes a lock manager, session manager, and lock timer manager.
+// It loads locks from the session manager and tries to lock all loaded locks.
+// It starts the IPC server and returns the lock server instance and a closer function.
+//
+// Parameters:
+//   - c: a pointer to a LockServerConfig struct containing configuration options for the lock server.
+//
+// Returns:
+//   - a pointer to a LockServer struct representing the lock server.
+//   - a function that closes the lock server.
+//   - an error if there was an issue creating the lock server.
+func New(c *LockServerConfig) (*LockServer, func(), error) {
+	lm, lmCloser := lock.NewManager(c.LockGcInterval, c.LockGcMinIdle)
+	l := &LockServer{
+		isShutdown:          atomic.Bool{},
+		lockMgr:             lm,
+		sessMgr:             session.NewManager(&c.SessionConfig),
+		noClearOnDisconnect: c.NoClearOnDisconnect,
+	}
 
-	// protobuf interface server
-	server, lsStopperFunc := locksrv.New(
-		&conf.LockSrvConfig,
-	)
+	// Set up lock timer manager
+	timeMgr, tmCloser := timer.NewManager()
+	l.lockTimerMgr = timeMgr
 
-	lis, err := net.Listen("tcp", conf.ListenAddress)
+	// Load locks from session manager
+	sessionLocks, err := l.sessMgr.Load()
 	if err != nil {
-		lsStopperFunc()
-		return nil, err
+		return nil, func() {
+			l.isShutdown.Store(true)
+			tmCloser()
+			lmCloser()
+		}, err
 	}
 
-	grpcOpts := []grpc.ServerOption{
-		// see locksrv/connection_handler.go
-		grpc.StatsHandler(server),
-		// Allow clients to stay connected indefinitely. Client disconnects
-		// could release all of their held locks
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			MaxConnectionIdle: 0 * time.Second, // Never send a GOAWAY for being idle
-			MaxConnectionAge:  0 * time.Second, // Never send a GOAWAY for max connection age
-			Time:              conf.KeepaliveInterval,
-			Timeout:           conf.KeepaliveTimeout,
-		}),
-		// Keepalive configuration to detect dead clients
-		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             10 * time.Second, // If a client pings more than once every 10 seconds, terminate the connection
-			PermitWithoutStream: true,             // Allow pings even when there are no active streams
-		}),
-	}
+	// Try to lock all loaded locks
+	ctx := context.Background()
+	for sessionId, locks := range sessionLocks {
+		for _, lk := range locks {
 
-	// Add TLS if provided
-	if creds, err := loadTLSCredentials(conf); err != nil {
-		lsStopperFunc()
-		return nil, err
-	} else if creds != nil {
-		grpcOpts = append(grpcOpts, grpc.Creds(creds))
-		log.Info("Loaded TLS configuration")
-	}
-
-	// Add authentication if provided
-	if conf.Password != "" {
-		grpcOpts = append(grpcOpts, authPasswordInterceptor(conf.Password))
-		log.Info("Loaded authentication configuration")
-	}
-
-	grpcServer := grpc.NewServer(grpcOpts...)
-	pb.RegisterLDLMServer(grpcServer, server)
-
-	// The main server function, which blocks
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			// ErrServerStopped happens as part of normal grpcServer shutdown
-			if err != grpc.ErrServerStopped {
-				panic("error starting grpc server: " + err.Error())
+			locked, err := l.lockMgr.TryLock(lk.Name(), lk.Key())
+			if err != nil || !locked {
+				slog.Error("Error locking loaded locks lockMgr.TryLock()",
+					"name", lk.Name(), "key", lk.Key(), "error", err.Error(),
+				)
+				// Locking failed, remove the loaded lock from sessMgr
+				l.sessMgr.RemoveLock(lk.Name(), sessionId)
+				continue
 			}
+			l.lockTimerMgr.Add(
+				lk.Name()+lk.Key(),
+				l.onTimeoutFunc(ctx, lk.Name(), lk.Key(), sessionId),
+				c.DefaultLockTimeout,
+			)
+			slog.Info("Loaded lock", "name", lk.Name(), "key", lk.Key())
 		}
-	}()
+	}
 
-	log.Warn("gRPC server started. Listening on " + conf.ListenAddress)
+	// Start the IPC server
+	ipcCloser, err := ipc.Run(l, &c.IPCConfig)
+	if err != nil {
+		return nil, func() {
+			l.isShutdown.Store(true)
+			tmCloser()
+			lmCloser()
+		}, fmt.Errorf("ipc.Run(): %w", err)
+	}
 
-	// Return a function to properly shut down the server
-	return func() {
-		log.Warn("Shutting down...")
-		lsStopperFunc()
-		// Can't GracefulStop() here or clients waiting for locks will block
-		// the server from exiting.
-		grpcServer.Stop()
+	// Return instance and closer function
+	return l, func() {
+		ipcCloser()
+		l.isShutdown.Store(true)
+		tmCloser()
+		lmCloser()
 	}, nil
 }
 
-// Return a credentials.TransportCredentials if TLS is configured
-func loadTLSCredentials(conf *ServerConfig) (credentials.TransportCredentials, error) {
-	useTls := false
+// Lock blocks until the lock is obtained or is canceled / timed out by context
+func (l *LockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *uint32, waitTimeoutSeconds *uint32) (*Lock, error) {
+	sessionId, ok := l.SessionId(ctx)
+	if !ok {
+		return nil, ErrSessionDoesNotExist
+	}
 
-	// Create tls config
-	tlsConfig := &tls.Config{}
+	key := sessionId
+	ctxLog := log.FromContextOrDefault(ctx)
 
-	// Load server's certificate and private key
-	if conf.TlsCert != "" {
-		serverCert, err := tls.LoadX509KeyPair(conf.TlsCert, conf.TlsKey)
-		if err != nil {
-			return nil, fmt.Errorf("LoadX509KeyPair() error loading cert: %w", err)
+	lockCtx := ctx
+	// Set up context with timeout if wait timeout is set
+	if waitTimeoutSeconds != nil {
+		newCtx, cancel := context.WithTimeoutCause(
+			ctx,
+			time.Duration(*waitTimeoutSeconds)*time.Second,
+			ErrLockWaitTimeout,
+		)
+		lockCtx = newCtx
+		defer cancel()
+	}
+
+	ctxLog.Info(
+		"Lock request",
+		"lock", name,
+	)
+
+	var (
+		locker chan interface{}
+		err    error
+	)
+
+	if name == "" {
+		err = ErrEmptyName
+	} else {
+		locker, err = l.lockMgr.Lock(name, key, lockCtx)
+	}
+	// Empty lock name or error from lockMgr.Lock
+	if err != nil {
+		ctxLog.Info(
+			"Lock response",
+			"lock", name,
+			"locked", false,
+			"error", err,
+		)
+		return &Lock{
+			Name:   name,
+			Locked: false,
+		}, err
+	}
+
+	// Wait for lock response
+	lr := <-locker
+
+	var (
+		lrErr  error = nil
+		locked       = false
+	)
+
+	// Error from lockMgr.Lock channel
+	if err, ok := lr.(error); ok {
+		lrErr = err
+	} else {
+		// Lock acquired if an error wasn't returned
+		locked = true
+
+		// Add lock to sessMgr
+		l.sessMgr.AddLock(name, key, sessionId)
+
+		// Add lock timer if lock timeout is set
+		if lockTimeoutSeconds != nil && *lockTimeoutSeconds > 0 {
+			d := time.Duration(*lockTimeoutSeconds) * time.Second
+			l.lockTimerMgr.Add(name+key, l.onTimeoutFunc(ctx, name, key, sessionId), d)
 		}
-		tlsConfig.Certificates = []tls.Certificate{serverCert}
-		useTls = true
 	}
 
-	// Client certificate verification
-	if conf.ClientCA != "" {
-		caPem, err := os.ReadFile(conf.ClientCA)
-		if err != nil {
-			return nil, fmt.Errorf("os.ReadFile() failed to read ca cert: %w", err)
+	ctxLog.Info(
+		"Lock response",
+		"lock", name,
+		"key", key,
+		"locked", locked,
+		"error", lrErr,
+	)
+
+	return &Lock{
+		Name:   name,
+		Locked: locked,
+		Key:    key,
+	}, lrErr
+}
+
+// Unlock surprisingly, unlocks a lock...
+func (l *LockServer) Unlock(ctx context.Context, name string, key string) (bool, error) {
+	sessionId, ok := l.SessionId(ctx)
+	if !ok {
+		return false, ErrSessionDoesNotExist
+	}
+
+	ctxLog := log.FromContextOrDefault(ctx)
+	ctxLog.Info(
+		"Unlock request",
+		"lock", name,
+		"key", key,
+	)
+
+	unlocked, err := l.lockMgr.Unlock(name, key)
+
+	if unlocked {
+		// Remove from lock map and lock timer
+		l.sessMgr.RemoveLock(name, sessionId)
+		l.lockTimerMgr.Remove(name + key)
+	}
+
+	ctxLog.Info(
+		"Unlock response",
+		"key", key,
+		"lock", name,
+		"unlocked", unlocked,
+		"error", err,
+	)
+
+	return unlocked, err
+}
+
+// TryLock attempts to acquire the lock and immediately fails or succeeds
+func (l *LockServer) TryLock(ctx context.Context, name string, lockTimeoutSeconds *uint32) (*Lock, error) {
+	sessionId, ok := l.SessionId(ctx)
+	if !ok {
+		return nil, ErrSessionDoesNotExist
+	}
+
+	key := sessionId
+	ctxLog := log.FromContextOrDefault(ctx)
+
+	ctxLog.Info(
+		"TryLock request",
+		"lock", name,
+	)
+
+	var (
+		locked bool
+		err    error
+	)
+
+	if name == "" {
+		locked = false
+		err = ErrEmptyName
+	} else {
+		locked, err = l.lockMgr.TryLock(name, key)
+	}
+
+	if locked {
+		// Add lock to sessMgr
+		l.sessMgr.AddLock(name, key, sessionId)
+
+		// Add lock timer if lock timeout is set
+		if lockTimeoutSeconds != nil && *lockTimeoutSeconds > 0 {
+			d := time.Duration(*lockTimeoutSeconds) * time.Second
+			l.lockTimerMgr.Add(name+key, l.onTimeoutFunc(ctx, name, key, sessionId), d)
 		}
-		certPool := x509.NewCertPool()
-		if !certPool.AppendCertsFromPEM(caPem) {
-			return nil, fmt.Errorf("AppendCertsFromPEM() failed to append client ca cert")
-		}
-		tlsConfig.ClientCAs = certPool
-		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-		useTls = true
-
-	} else if conf.ClientCertVerify {
-		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-		useTls = true
 	}
 
-	// Can't do client TLS without server TLS
-	if useTls && conf.TlsCert == "" {
-		return nil, fmt.Errorf("client TLS certificate verification requires server TLS to be configured")
-	}
+	ctxLog.Info(
+		"TryLock response",
+		"lock", name,
+		"key", key,
+		"locked", locked,
+		"error", err,
+	)
 
-	if useTls {
-		return credentials.NewTLS(tlsConfig), nil
-	}
-
-	return nil, nil
+	return &Lock{
+		Name:   name,
+		Locked: locked,
+		Key:    key,
+	}, err
 
 }
 
-// authPasswordInterceptor returns a gRPC interceptor for authentication
-func authPasswordInterceptor(password string) grpc.ServerOption {
+// RefreshLock refreshes a lock timer
+func (l *LockServer) RefreshLock(ctx context.Context, name string, key string, lockTimeoutSeconds uint32) (*Lock, error) {
 
-	return grpc.UnaryInterceptor(
-		func(ctx context.Context, r interface{}, _ *grpc.UnaryServerInfo, h grpc.UnaryHandler) (interface{}, error) {
-			md, ok := metadata.FromIncomingContext(ctx)
-			if !ok || md["authorization"] == nil {
-				return nil, status.Errorf(codes.Unauthenticated, "missing credentials")
-			}
-			if md["authorization"][0] != password {
-				return nil, status.Errorf(codes.Unauthenticated, "invalid credentials")
-			}
-			return h(ctx, r)
-		},
+	ctxLog := log.FromContextOrDefault(ctx)
+	ctxLog.Info(
+		"RefreshLock request",
+		"lock", name,
+		"key", key,
+		"timeout", lockTimeoutSeconds,
 	)
+
+	locked, err := l.lockTimerMgr.Refresh(name+key, time.Duration(lockTimeoutSeconds)*time.Second)
+
+	if err == timer.ErrTimerDoesNotExist {
+		err = ErrLockDoesNotExistOrInvalidKey
+	}
+
+	ctxLog.Info(
+		"RefreshLock response",
+		"lock", name,
+		"locked", locked,
+		"error", err,
+	)
+
+	return &Lock{
+		Name:   name,
+		Locked: locked,
+		Key:    key,
+	}, err
+
+}
+
+// Locks returns a list of client locks.
+func (l *LockServer) Locks() []cl.Lock {
+	locks := []cl.Lock{}
+	for _, ll := range l.sessMgr.Locks() {
+		locks = append(locks, ll...)
+	}
+	return locks
+}
+
+// SessionId returns the session ID from the context.
+func (l *LockServer) SessionId(ctx context.Context) (string, bool) {
+	v := ctx.Value(sessionCtxKey)
+	if v == nil {
+		return "", false
+	}
+	return v.(string), true
+}
+
+// CreateSession creates a new session
+func (l *LockServer) CreateSession(ctx context.Context, sessionInfo map[string]any) (string, context.Context) {
+	sessionId := uuid.NewString()
+	cxLogger := slog.Default().With(
+		"session_id", sessionId,
+	)
+	for k, v := range sessionInfo {
+		cxLogger = cxLogger.With(k, v)
+	}
+	cxLogger.Info("Session started")
+
+	ctx = context.WithValue(ctx, sessionCtxKey, sessionId)
+	ctx = log.ToContext(cxLogger, ctx)
+	l.sessMgr.CreateSession(sessionId)
+
+	return sessionId, ctx
+}
+
+// DestroySession destroys the session
+func (l *LockServer) DestroySession(ctx context.Context) (sessionId string) {
+	sessionId = ctx.Value(sessionCtxKey).(string)
+
+	// This section is hit when the server is being shut down. We don't to clear all locks on
+	// shutdown, otherwise the session manager will write all 0 locks to the state file on
+	// shutdown.
+	if l.isShutdown.Load() {
+		return
+	}
+
+	ctxLog := log.FromContextOrDefault(ctx)
+	ctxLog.Info("Session ended")
+
+	locks := l.sessMgr.DestroySession(sessionId)
+
+	if l.noClearOnDisconnect || len(locks) == 0 {
+		return
+	}
+
+	ctxLog.Info("Client session cleanup",
+		"num_locks", len(locks),
+	)
+
+	// For each lock, unlock it and remove it from the lockTimerMgr
+	for _, lk := range locks {
+		if unlocked, err := l.lockMgr.Unlock(lk.Name(), lk.Key()); err != nil || !unlocked {
+			ctxLog.Error(
+				"Error unlocking lock during client session cleanup",
+				"lock", lk.Name(),
+				"key", lk.Key(),
+				"error", err,
+			)
+
+		} else {
+			ctxLog.Info(
+				"Unlocked during client session cleanup",
+				"lock", lk.Name(),
+			)
+			l.lockTimerMgr.Remove(lk.Name())
+		}
+	}
+
+	return
+}
+
+// onTimeoutFunc returns a function for handling a lock timeout
+func (l *LockServer) onTimeoutFunc(ctx context.Context, name string, key string, sessionId string) func() {
+	return func() {
+		// Unlock on timeout. The lock manager will automatically remove the timer
+		// when the timer function fires, so there is no need to do that here.
+		ctxLog := log.FromContextOrDefault(ctx)
+		ctxLog.Info(
+			"Lock timer timeout",
+			"lock", name,
+			"key", key,
+		)
+		if unlocked, err := l.lockMgr.Unlock(name, key); err != nil || !unlocked {
+			ctxLog.Error("Error unlocking lock during lock timer timeout",
+				"lock", name,
+				"key", key,
+				"unlocked", unlocked,
+				"error", err,
+			)
+		}
+		// There is a race condition where a timer may fire on client disconnect and the disconnect
+		// handler has already removed the lock from the session manager
+		defer func() {
+			if r := recover(); r != nil {
+				ctxLog.Error("Error removing session",
+					"session_id", sessionId,
+				)
+			}
+		}()
+		l.sessMgr.RemoveLock(name, sessionId)
+	}
 }

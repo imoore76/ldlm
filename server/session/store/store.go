@@ -13,12 +13,11 @@
 // limitations under the License.
 
 /*
-This file contains the readWriter struct, its methods, and some helper
-functions related to serialization. readWriter is responsible for reading
-and writing the server's clientLocks to a file so that locks can persist
-across ldlm server restarts.
+This file contains the store struct, its methods, and some helper functions related to
+serialization. store is responsible for reading and writing the server's session locks to a file
+so that locks can persist across ldlm server restarts.
 */
-package readwriter
+package store
 
 import (
 	"fmt"
@@ -26,48 +25,43 @@ import (
 	"os"
 
 	bstd "github.com/deneonet/benc"
-
-	cl "github.com/imoore76/go-ldlm/server/locksrv/lockmap/clientlock"
+	cl "github.com/imoore76/go-ldlm/server/clientlock"
 )
 
-type Config struct {
-	StateFile string `desc:"File in which to store lock state" default:"" short:"s"`
-}
-
-// readWriter provides Read() and Write() functions to read and write
-// the server's clientLocks map. The state file is never closed - only
+// store provides Read() and Write() functions to read and write
+// the server's session locks map. The state file is never closed - only
 // truncated, rewritten, and sync()ed
-type readWriter struct {
+type store struct {
 	fh *os.File
 }
 
-// New returns a new readWriter instance
-func New(c *Config) (*readWriter, error) {
+// New returns a new store instance
+func New(stateFile string) (*store, error) {
 	var fh *os.File
-	if c.StateFile != "" {
+	if stateFile != "" {
 		var err error
-		fh, err = os.OpenFile(c.StateFile, os.O_RDWR|os.O_CREATE, 0644)
+		fh, err = os.OpenFile(stateFile, os.O_RDWR|os.O_CREATE, 0644)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return &readWriter{
+	return &store{
 		fh: fh,
 	}, nil
 
 }
 
-// Write writes the server's clientLocks map to the readWriter's state file
-func (l *readWriter) Write(clientLocks map[string][]cl.ClientLock) error {
+// Write writes the server's session locks map to the store's state file
+func (l *store) Write(sessionLocks map[string][]cl.Lock) error {
 
 	// No state file configured. Nothing to do
 	if l.fh == nil {
 		return nil
 	}
 
-	if d, err := marshalClientLocks(clientLocks); err != nil {
-		panic("marshalClientLocks() error: " + err.Error())
+	if d, err := marshalLocks(sessionLocks); err != nil {
+		panic("marshalLocks() error: " + err.Error())
 	} else {
 		l.fh.Truncate(0)
 		l.fh.Seek(0, io.SeekStart)
@@ -79,13 +73,13 @@ func (l *readWriter) Write(clientLocks map[string][]cl.ClientLock) error {
 	return nil
 }
 
-// Read reads serialized client lock map from readWriter's state file
-// directly into the server's clientLocks map
-func (l *readWriter) Read() (map[string][]cl.ClientLock, error) {
+// Read reads serialized client lock map from store's state file
+// directly into the server's session locks map
+func (l *store) Read() (map[string][]cl.Lock, error) {
 
 	// No state file configured. Nothing to do
 	if l.fh == nil {
-		return map[string][]cl.ClientLock{}, nil
+		return nil, nil
 	}
 
 	// SeekEnd to get size
@@ -99,7 +93,7 @@ func (l *readWriter) Read() (map[string][]cl.ClientLock, error) {
 
 	// Empty state file
 	if size == 0 {
-		return map[string][]cl.ClientLock{}, nil
+		return nil, nil
 	}
 
 	// < os.ReadFile source > - see os.Readfile() comments
@@ -126,31 +120,31 @@ func (l *readWriter) Read() (map[string][]cl.ClientLock, error) {
 	}
 	// </ os.ReadFile source >
 
-	if m, err := unmarshalClientLocks(data); err != nil {
+	if m, err := unmarshalLocks(data); err != nil {
 		return nil, fmt.Errorf("error unmarshaling state data: %w", err)
 	} else {
 		return m, nil
 	}
 }
 
-// Close closes the readWriter's state file
-func (l *readWriter) Close() {
+// Close closes the store's state file
+func (l *store) Close() {
 	if l.fh != nil {
 		l.fh.Close()
 	}
 }
 
 // Marshal client lock map to byte slice for writing
-func marshalClientLocks(m map[string][]cl.ClientLock) ([]byte, error) {
-	// It seems benc doesn't handle a map of slices natively, so the format had
+func marshalLocks(m map[string][]cl.Lock) ([]byte, error) {
+	// It seems benc doesn't handle a map of slices natively, so this format had
 	// to be created. It is:
 	// The first Uint size of bytes is the length of the map.
 	// 		* For each map element
 	// 			* The string key
-	// 			* Its clientLocks slice
-	sz := bstd.SizeUInt()
-	for k, v := range m {
-		sz += bstd.SizeString(k) + bstd.SizeSlice(v, func(clk cl.ClientLock) int {
+	// 			* Its session locks slice
+	sz := bstd.SizeUInt() // size is uint
+	for k, v := range m { // add size of key, then size of slice for each value in map
+		sz += bstd.SizeString(k) + bstd.SizeSlice(v, func(clk cl.Lock) int {
 			return bstd.SizeString(clk.Name()) + bstd.SizeString(clk.Key())
 		})
 	}
@@ -158,15 +152,15 @@ func marshalClientLocks(m map[string][]cl.ClientLock) ([]byte, error) {
 	n = bstd.MarshalUInt(n, buf, uint(len(m)))
 	for k, v := range m {
 		n = bstd.MarshalString(n, buf, k)
-		n = bstd.MarshalSlice(n, buf, v, marshalClientLock)
+		n = bstd.MarshalSlice(n, buf, v, marshalLock)
 	}
 	return buf, bstd.VerifyMarshal(n, buf)
 }
 
 // Unmarshal byte slice to client lock map
-func unmarshalClientLocks(b []byte) (map[string][]cl.ClientLock, error) {
-	// See marshalClientLocks() for file format notes
-	m := make(map[string][]cl.ClientLock)
+func unmarshalLocks(b []byte) (map[string][]cl.Lock, error) {
+	// See marshalLocks() for file format notes
+	m := make(map[string][]cl.Lock)
 	if len(b) == 0 {
 		return m, nil
 	}
@@ -179,15 +173,15 @@ func unmarshalClientLocks(b []byte) (map[string][]cl.ClientLock, error) {
 	}
 
 	var k string
-	var l []cl.ClientLock
+	var l []cl.Lock
 	for range maplength {
 		// Key
 		n, k, err = bstd.UnmarshalString(n, b)
 		if err != nil {
 			panic(err)
 		}
-		// Slice of clientLocks
-		n, l, err = bstd.UnmarshalSlice(n, b, unmarshalClientLock)
+		// Slice of session locks
+		n, l, err = bstd.UnmarshalSlice(n, b, unmarshalLock)
 		if err != nil {
 			panic(err)
 		}
@@ -197,8 +191,8 @@ func unmarshalClientLocks(b []byte) (map[string][]cl.ClientLock, error) {
 	return m, nil
 }
 
-// marshalClientLock marshals a single clientLock struct
-func marshalClientLock(n int, b []byte, l cl.ClientLock) int {
+// marshalLock marshals a single client lock struct
+func marshalLock(n int, b []byte, l cl.Lock) int {
 	// Calculate the size of the struct
 	sz := bstd.SizeString(l.Name()) + bstd.SizeString(l.Key())
 
@@ -213,9 +207,9 @@ func marshalClientLock(n int, b []byte, l cl.ClientLock) int {
 	return n + sz
 }
 
-// unmarshalClientLock unmarshals a single clientLock struct
-func unmarshalClientLock(n int, b []byte) (int, cl.ClientLock, error) {
-	clk := *cl.New("", "")
+// unmarshalLock unmarshals a single client lock struct
+func unmarshalLock(n int, b []byte) (int, cl.Lock, error) {
+	clk := cl.New("", "")
 
 	var name, key string
 	// Deserialize the byte slice into the struct
@@ -231,5 +225,5 @@ func unmarshalClientLock(n int, b []byte) (int, cl.ClientLock, error) {
 	}
 	key = str
 
-	return n, *cl.New(name, key), nil
+	return n, cl.New(name, key), nil
 }

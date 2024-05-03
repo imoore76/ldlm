@@ -3,7 +3,7 @@
 !/.github
 !/.goreleaser.yaml
 !/.dockerfile
-/build
+!/.api_config.yaml
 /dist
 
 # Added by vscode's C# extension

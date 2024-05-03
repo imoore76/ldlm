@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net/rpc"
 
-	"github.com/imoore76/go-ldlm/server/locksrv/ipc"
+	"github.com/imoore76/go-ldlm/server/ipc"
 )
 
 // Kong struct defining arguments and flags for unlock command

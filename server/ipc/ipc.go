@@ -23,7 +23,6 @@ import (
 	log "log/slog"
 
 	"github.com/imoore76/go-ldlm/lock"
-	pb "github.com/imoore76/go-ldlm/protos"
 )
 
 type (
@@ -58,20 +57,12 @@ func (i *IPC) Unlock(req UnlockRequest, resp *UnlockResponse) error {
 	}
 
 	// Send the request to the lock server and get the response
-	lockSrvReq := &pb.UnlockRequest{
-		Name: req.Name,
-		Key:  req.Key,
-	}
-	lockSrvResp, err := i.lckSrv.Unlock(context.Background(), lockSrvReq)
+	unlocked, err := i.lckSrv.Unlock(context.Background(), req.Name, req.Key)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to unlock lock: %s", err)
 	}
 
-	if lockSrvResp.Error != nil {
-		return fmt.Errorf("failed to unlock lock: %s", lockSrvResp.Error.Message)
-	}
-
-	*resp = UnlockResponse(lockSrvResp.Unlocked)
+	*resp = UnlockResponse(unlocked)
 	return nil
 }
 

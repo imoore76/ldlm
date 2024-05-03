@@ -16,6 +16,7 @@ package ipc_test
 
 import (
 	"context"
+	"errors"
 	"net/rpc"
 	"os"
 	"strings"
@@ -23,9 +24,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	pb "github.com/imoore76/go-ldlm/protos"
-	"github.com/imoore76/go-ldlm/server/locksrv/ipc"
-	cl "github.com/imoore76/go-ldlm/server/locksrv/lockmap/clientlock"
+	cl "github.com/imoore76/go-ldlm/server/clientlock"
+	"github.com/imoore76/go-ldlm/server/ipc"
 )
 
 func conf() (*ipc.IPCConfig, func()) {
@@ -41,21 +41,22 @@ func conf() (*ipc.IPCConfig, func()) {
 }
 
 type testLockServer struct {
-	unlockResponse   *pb.UnlockResponse
-	unlockRequest    *pb.UnlockRequest
-	getlocksResponse []cl.ClientLock
+	unlockResponse    bool
+	unlockError       error
+	unlockRequestName string
+	getlocksResponse  []cl.Lock
 }
 
-func (t *testLockServer) Locks() []cl.ClientLock {
+func (t *testLockServer) Locks() []cl.Lock {
 	return t.getlocksResponse
 }
 
-func (t *testLockServer) Unlock(ctx context.Context, req *pb.UnlockRequest) (*pb.UnlockResponse, error) {
-	t.unlockRequest = req
-	return t.unlockResponse, nil
+func (t *testLockServer) Unlock(ctx context.Context, name string, key string) (bool, error) {
+	t.unlockRequestName = name
+	return t.unlockResponse, t.unlockError
 }
 
-func newTestLockServer(u *pb.UnlockResponse, l []cl.ClientLock) *testLockServer {
+func newTestLockServer(u bool, l []cl.Lock) *testLockServer {
 	return &testLockServer{
 		unlockResponse:   u,
 		getlocksResponse: l,
@@ -75,28 +76,25 @@ func TestRun(t *testing.T) {
 	assert := assert.New(t)
 	c, cleanup := conf()
 	defer cleanup()
-	cancel, err := ipc.Run(newTestLockServer(nil, nil), c)
-	defer cancel()
+
+	close, err := ipc.Run(newTestLockServer(false, nil), c)
+	defer close()
 	assert.NoError(err)
 }
 
 func TestUnlock(t *testing.T) {
 	assert := assert.New(t)
 
-	resp := &pb.UnlockResponse{
-		Unlocked: true,
-		Name:     "mylock",
-	}
-	ls := newTestLockServer(resp, []cl.ClientLock{
-		*cl.New("mylock", "bar"),
+	ls := newTestLockServer(true, []cl.Lock{
+		cl.New("mylock", "bar"),
 	})
 
 	c, cleanup := conf()
 	defer cleanup()
 
-	cancel, err := ipc.Run(ls, c)
+	close, err := ipc.Run(ls, c)
+	defer close()
 	assert.NoError(err)
-	defer cancel()
 
 	client := newClient(c)
 
@@ -109,18 +107,14 @@ func TestUnlock(t *testing.T) {
 func TestUnlockWithKey(t *testing.T) {
 	assert := assert.New(t)
 
-	resp := &pb.UnlockResponse{
-		Unlocked: true,
-		Name:     "mylock",
-	}
-	ls := newTestLockServer(resp, []cl.ClientLock{})
+	ls := newTestLockServer(true, []cl.Lock{})
 
 	c, cleanup := conf()
 	defer cleanup()
 
-	cancel, err := ipc.Run(ls, c)
+	close, err := ipc.Run(ls, c)
+	defer close()
 	assert.NoError(err)
-	defer cancel()
 
 	client := newClient(c)
 
@@ -133,24 +127,17 @@ func TestUnlockWithKey(t *testing.T) {
 func TestUnlockFail(t *testing.T) {
 	assert := assert.New(t)
 
-	resp := &pb.UnlockResponse{
-		Unlocked: false,
-		Name:     "mylock",
-		Error: &pb.Error{
-			Code:    pb.ErrorCode_Unknown,
-			Message: "things and stuff went wrong",
-		},
-	}
-	ls := newTestLockServer(resp, []cl.ClientLock{
-		*cl.New("mylock", "bar"),
+	ls := newTestLockServer(false, []cl.Lock{
+		cl.New("mylock", "bar"),
 	})
+	ls.unlockError = errors.New("things and stuff went wrong")
 
 	c, cleanup := conf()
 	defer cleanup()
 
-	cancel, err := ipc.Run(ls, c)
+	close, err := ipc.Run(ls, c)
 	assert.NoError(err)
-	defer cancel()
+	defer close()
 
 	client := newClient(c)
 
@@ -158,7 +145,7 @@ func TestUnlockFail(t *testing.T) {
 	err = client.Call("IPC.Unlock", ipc.UnlockRequest{Name: "mylock"}, unlocked)
 	assert.Error(err)
 	assert.False(bool(*unlocked))
-	assert.True(strings.Contains(err.Error(), "failed to unlock lock"), "Unexpected error: %v", err)
+	assert.True(strings.Contains(err.Error(), "things and stuff went wrong"), "Unexpected error: %v", err)
 }
 
 func TestUnlock_LockDoesNotExist(t *testing.T) {
@@ -167,11 +154,11 @@ func TestUnlock_LockDoesNotExist(t *testing.T) {
 	c, cleanup := conf()
 	defer cleanup()
 
-	cancel, err := ipc.Run(newTestLockServer(nil, []cl.ClientLock{
-		*cl.New("foo", "bar"),
+	close, err := ipc.Run(newTestLockServer(false, []cl.Lock{
+		cl.New("foo", "bar"),
 	}), c)
+	defer close()
 	assert.NoError(err)
-	defer cancel()
 
 	client := newClient(c)
 
@@ -186,21 +173,21 @@ func TestUnlock_LockDoesNotExist(t *testing.T) {
 func TestListLocks(t *testing.T) {
 	assert := assert.New(t)
 
-	locks := []cl.ClientLock{
-		*cl.New("foo", "bar"),
-		*cl.New("you", "there"),
-		*cl.New("a", "baz"),
-		*cl.New("b", "baz"),
-		*cl.New("c", "baz"),
-		*cl.New("you", "here"),
+	locks := []cl.Lock{
+		cl.New("foo", "bar"),
+		cl.New("you", "there"),
+		cl.New("a", "baz"),
+		cl.New("b", "baz"),
+		cl.New("c", "baz"),
+		cl.New("you", "here"),
 	}
 
 	c, cleanup := conf()
 	defer cleanup()
 
-	cancel, err := ipc.Run(newTestLockServer(nil, locks), c)
+	close, err := ipc.Run(newTestLockServer(false, locks), c)
 	assert.NoError(err)
-	defer cancel()
+	defer close()
 	client := newClient(c)
 
 	lockList := new(ipc.ListLocksResponse)
@@ -217,14 +204,15 @@ func TestListLocks(t *testing.T) {
 func TestListLocks_NoLocks(t *testing.T) {
 	assert := assert.New(t)
 
-	locks := []cl.ClientLock{}
+	locks := []cl.Lock{}
 
 	c, cleanup := conf()
 	defer cleanup()
 
-	cancel, err := ipc.Run(newTestLockServer(nil, locks), c)
+	close, err := ipc.Run(newTestLockServer(false, locks), c)
 	assert.NoError(err)
-	defer cancel()
+	defer close()
+
 	client := newClient(c)
 
 	lockList := new(ipc.ListLocksResponse)

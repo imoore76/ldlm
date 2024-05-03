@@ -23,7 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -60,20 +60,20 @@ type Manager struct {
 	lockCh     chan struct{}
 	locks      map[string]*ManagedLock
 	stopCh     chan struct{}
-	isShutdown bool
+	isShutdown atomic.Bool
 }
 
 // NewManager creates a new Manager with the given garbage collection interval, minimum idle time, and logger, and returns a pointer to the Manager.
 //
 // Parameters:
+// - ctx context.Context: the context for the Manager
 // - gcInterval time.Duration: the interval for lock garbage collection
 // - gcMinIdle time.Duration: the minimum time a lock must be idle before being considered for garbage collection
 // Returns:
 // - *Manager: a pointer to the newly created Manager
-// - func(): a function that can be called to stop the Manager
-func NewManager(gcInterval time.Duration, gcMinIdle time.Duration) (m *Manager, closer func()) {
+func NewManager(gcInterval time.Duration, gcMinIdle time.Duration) (*Manager, func()) {
 
-	m = &Manager{
+	m := &Manager{
 		lockCh: make(chan struct{}, 1),
 		locks:  make(map[string]*ManagedLock),
 		stopCh: make(chan struct{}),
@@ -92,7 +92,7 @@ func NewManager(gcInterval time.Duration, gcMinIdle time.Duration) (m *Manager, 
 			}
 		}
 	}()
-	return m, sync.OnceFunc(m.shutdown)
+	return m, m.shutdown
 }
 
 // Lock access to managed locks
@@ -114,7 +114,7 @@ func (m *Manager) shutdown() {
 	// Clear all locks
 	m.lockGc(0 * time.Second)
 
-	m.isShutdown = true
+	m.isShutdown.Store(true)
 }
 
 // getLock gets or creates a lock with the given name
@@ -122,7 +122,7 @@ func (m *Manager) getLock(name string, create bool) *ManagedLock {
 	m.lock()
 	defer m.unlock()
 
-	if m.isShutdown {
+	if m.isShutdown.Load() {
 		panic("Attempted to get lock from a stopped Manager")
 	}
 
