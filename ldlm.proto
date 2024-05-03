@@ -66,8 +66,8 @@ message RefreshLockRequest {
 }
 
 service LDLM {
-  rpc Lock(LockRequest) returns (LockResponse) {}
-  rpc Unlock(UnlockRequest) returns (UnlockResponse) {}
-  rpc TryLock(TryLockRequest) returns (LockResponse) {}
+  rpc Lock(LockRequest) returns (LockResponse) { }
+  rpc Unlock(UnlockRequest) returns (UnlockResponse) { }
+  rpc TryLock(TryLockRequest) returns (LockResponse) { }
   rpc RefreshLock(RefreshLockRequest) returns (LockResponse) {}
 }

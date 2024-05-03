@@ -1,6 +1,6 @@
 # ldlm
 
-ldlm is a lightweight distributed lock manager implemented over gRPC.
+ldlm is a lightweight distributed lock manager implemented over gRPC and REST.
 
 ## Installation
 
@@ -38,7 +38,8 @@ user@host ~$ docker run -p 3144:3144 ian76/ldlm:latest
 |       | `--password`               |                                 | Require clients to specify this [password](#password). Clients do this by setting the [metadata](https://grpc.io/docs/guides/metadata/) `authorization` key.                                   |
 |       | `--tls_cert`               |                                 | Path to TLS certificate file to enable TLS                                                                                                                                                     |
 |       | `--tls_key`                |                                 | Path to TLS key file                                                                                                                                                                           |
-
+| `-r` | `--rest_listen_address` |   | The host:port on which the REST server should listen. Leave empty to disable the REST server. Default is empty. |
+|      | `--rest_session_timeout` | 10m | The idle timeout of a REST session. |
 ### Environment Variables
 
 Configuration from environment variables consists of setting `LDLM_<upper case cli flag>`. For example
@@ -338,7 +339,66 @@ resp = stub.TryLock(
 
 print(resp)
 ```
+### REST Client
 
+When the REST server is enabled, its endpoints are
+
+| Path | Method | Description |
+| :--- | :--- |  :--- |
+| `/session` | `POST` | This creates a session in the LDLM REST server and sets a cookie that must be included in subsequent requests. |
+| `/session` | `DELETE` | Closes your session in the LDLM REST server and releases any resources and locks associated with it. REST sessions idle for more than 10 minutes (default) will be automatically removed, so calling this endpoint is not absolutely necessary.  |
+| `/v1/lock` | `POST` | Behaves like, and accepts the same parameters as `TryLock`. |
+| `/v1/unlock` | `POST` | Behaves like, and accepts the same parameters as `Unlock`. |
+| `/v1/refreshlock` | `POST` | Behaves like, and accepts the same parameters as `RefreshLock`. |
+
+#### Example REST Client Usage
+
+The following examples use `curl` and its cookie jar feature to maintain the session cookie across requests. If your REST session has been idle for more than 10m (configurable), your session will expire and all locks you have obtained will be unlocked.
+
+##### Create a session
+Though the session id is included in the output, it is also set in the response using `Set-Cookie`. The cookie's name is `ldlm-session`.
+```shell
+user@host ~$ curl -X POST -c cookies.txt http://localhost:8080/session
+
+{"session_id": "e45946cc3a474efc8ab6073918d059a6"}
+```
+
+##### Obtain a lock
+```shell
+user@host ~$ curl -c cookies.txt -b cookies.txt http://localhost:8080/v1/lock -d '{"name": "My lock", "lock_timeout_seconds": 120}'
+
+{"locked":true, "name":"My lock", "key":"180d6028-7bf6-4a0b-a844-4776762c61e0"}
+```
+
+##### Refresh a lock
+```shell
+user@host ~$ curl -c cookies.txt -b cookies.txt http://localhost:8080/v1/refreshlock -d '{"name": "My lock", "lock_timeout_seconds": 120, "key":"180d6028-7bf6-4a0b-a844-4776762c61e0"}'
+
+{"locked":true, "name":"My lock", "key":"180d6028-7bf6-4a0b-a844-4776762c61e0"}
+```
+
+##### Unlock a lock
+```shell
+user@host ~$ curl -c cookies.txt -b cookies.txt http://localhost:8080/v1/unlock -d '{"name": "My lock", "key":"180d6028-7bf6-4a0b-a844-4776762c61e0"}'
+
+{"unlocked":true, "name":"My lock"}
+```
+
+##### Delete session
+```shell
+user@host ~$ curl -X DELETE -b cookies.txt -c cookies.txt http://localhost:8080/session
+
+{"session_id": ""}
+```
+
+##### Authentication
+If you have set `--password` on the ldlm server, it will also apply to the rest server. The password should be supplied using HTTP [Basic Auth](https://en.wikipedia.org/wiki/Basic_access_authentication).
+
+```shell
+user@host ~$ LDLM_AUTH=$(echo -n ':mypassword' | base64) curl -X POST -c cookies.txt -H "Authorization: Basic $LDLM_AUTH" http://localhost:8080/session
+{"session_id": "e45946cc3a474efc8ab6073918d059a6"}
+
+```
 ### Example Clients
 
 See example code for ldlm clients in the <a href="./examples">examples</a> folder.

@@ -12,26 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-This file contains the ClientLock struct definition and methods. A ClientLock
-represents a lock held by an RPC client.
-*/
-package clientlock
+package clientlock_test
 
-// Client lock represents a lock held by an RPC client
-type ClientLock struct {
-	name string
-	key  string
-}
+import (
+	"testing"
 
-func (c *ClientLock) Name() string {
-	return c.name
-}
+	"github.com/stretchr/testify/assert"
 
-func (c *ClientLock) Key() string {
-	return c.key
-}
+	cl "github.com/imoore76/go-ldlm/server/clientlock"
+)
 
-func New(name string, key string) *ClientLock {
-	return &ClientLock{name: name, key: key}
+func TestClientLock(t *testing.T) {
+	assert := assert.New(t)
+	var lk cl.Lock = cl.New("foo", "bar")
+
+	assert.Equal(lk.Name(), "foo")
+	assert.Equal(lk.Key(), "bar")
 }

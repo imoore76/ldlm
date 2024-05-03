@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package readwriter_test
+package store_test
 
 import (
 	"os"
@@ -20,41 +20,35 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	cl "github.com/imoore76/go-ldlm/server/locksrv/lockmap/clientlock"
-	rw "github.com/imoore76/go-ldlm/server/locksrv/lockmap/readwriter"
+	cl "github.com/imoore76/go-ldlm/server/clientlock"
+	"github.com/imoore76/go-ldlm/server/session/store"
 )
 
-func newConfig(file string) *rw.Config {
-	return &rw.Config{
-		StateFile: file,
-	}
-}
-
-func TestNewReadWriter(t *testing.T) {
+func TestNewStore(t *testing.T) {
 	assert := assert.New(t)
 
 	tmpfile, err := os.CreateTemp("", "ldlm-test-*")
 	assert.NoError(err)
 	defer os.Remove(tmpfile.Name())
 
-	r, err := rw.New(newConfig(tmpfile.Name()))
+	r, err := store.New(tmpfile.Name())
 	assert.NoError(err)
 	assert.NotNil(r)
 }
 
-func TestReadWriterWriteAndRead(t *testing.T) {
+func TestStoreWriteAndRead(t *testing.T) {
 	assert := assert.New(t)
 
 	tmpfile, err := os.CreateTemp("", "ldlm-test-*")
 	assert.NoError(err)
 	defer os.Remove(tmpfile.Name())
 
-	r, err := rw.New(newConfig(tmpfile.Name()))
+	r, err := store.New(tmpfile.Name())
 	assert.NoError(err)
 
-	c := map[string][]cl.ClientLock{
-		"fname": {*cl.New("fname", "fkey")},
-		"lname": {*cl.New("fname", "fkey"), *cl.New("lname", "lkey")},
+	c := map[string][]cl.Lock{
+		"fname": {cl.New("fname", "fkey")},
+		"lname": {cl.New("fname", "fkey"), cl.New("lname", "lkey")},
 	}
 
 	assert.NoError(r.Write(c))
@@ -64,20 +58,20 @@ func TestReadWriterWriteAndRead(t *testing.T) {
 	assert.Equal(c, c2)
 }
 
-func TestReadWriterWriteAndRead_EmptyFileName(t *testing.T) {
+func TestStoreWriteAndRead_EmptyFileName(t *testing.T) {
 	assert := assert.New(t)
 
-	r, err := rw.New(&rw.Config{})
+	r, err := store.New("")
 	assert.NoError(err)
 
-	c := map[string][]cl.ClientLock{
-		"fname": {*cl.New("fname", "fkey")},
-		"lname": {*cl.New("fname", "fkey"), *cl.New("lname", "lkey")},
+	c := map[string][]cl.Lock{
+		"fname": {cl.New("fname", "fkey")},
+		"lname": {cl.New("fname", "fkey"), cl.New("lname", "lkey")},
 	}
 
 	assert.NoError(r.Write(c))
 
 	c2, err := r.Read()
 	assert.NoError(err)
-	assert.Equal(map[string][]cl.ClientLock{}, c2)
+	assert.Equal(map[string][]cl.Lock(nil), c2)
 }

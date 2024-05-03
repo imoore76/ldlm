@@ -17,9 +17,10 @@
 # - grep
 # - pcre2grep
 # - protoc
-#   - grpc_python_plugin
 #   - protoc-gen-go
 #   - protoc-gen-go-grpc
+#   - protoc-gen-grpc-gateway
+#   - protoc-gen-grpc_python
 # - misspell
 # - gocyclo
 # - mktemp
@@ -42,29 +43,39 @@ tasks:
     generates:
       - protos/ldlm_grpc.pb.go
       - protos/ldlm.pb.go
+      - protos/ldlm.pb.gw.go
       - examples/python/protos/ldlm_pb2_grpc.py
       - examples/python/protos/ldlm_pb2.py
     cmds:
-      - protoc --go_out=./ --go-grpc_out=./ --go-grpc_opt=Mldlm.proto=./protos --go_opt=Mldlm.proto=./protos -I. --python_out=examples/python/protos --grpc_python_out=examples/python/protos --plugin=protoc-gen-grpc_python={{.GRPC_PYTHON_PLUGIN}} ldlm.proto
-      - for: ['protos/ldlm_grpc.pb.go', 'protos/ldlm.pb.go', 'examples/python/protos/ldlm_pb2_grpc.py', 'examples/python/protos/ldlm_pb2.py']
+      - >
+        protoc -I.
+        --go_out=./ --go_opt=Mldlm.proto=./protos 
+        --go-grpc_out=./ --go-grpc_opt=Mldlm.proto=./protos
+        --grpc_python_out=examples/python/protos
+        --grpc-gateway_opt=Mldlm.proto=./protos
+        --grpc-gateway_opt grpc_api_configuration=./.api_config.yaml
+        --grpc-gateway_out=./
+        ldlm.proto
+      - for: ['protos/ldlm_grpc.pb.go', 'protos/ldlm.pb.go', 'examples/python/protos/ldlm_pb2_grpc.py', 'examples/python/protos/ldlm_pb2.py', 'protos/ldlm.pb.gw.go']
         cmd: addlicense {{.ITEM}}
-    vars:
-      GRPC_PYTHON_PLUGIN:
-        sh: "which grpc_python_plugin"
+
+  dist:
+    internal: true
+    cmds:
+      - test -d dist || mkdir dist
 
   build:
     desc: "Build artifacts"
     sources:
       - "**/*.go"
     generates:
-      - build/ldlm-server{{exeExt}}
-      - build/ldlm-lock{{exeExt}}
-      - build/ldlm-stress{{exeExt}}
+      - dist/ldlm-server{{exeExt}}
+      - dist/ldlm-lock{{exeExt}}
+      - dist/ldlm-stress{{exeExt}}
+    deps: [dist, protoc]
     cmds:
-      - task: protoc
-      - test -d ./build || mkdir build
       - for: ['server', 'lock', 'stress']
-        cmd: go build -o build/ldlm-{{.ITEM}}{{exeExt}} ./cmd/{{.ITEM}}/
+        cmd: go build -o dist/ldlm-{{.ITEM}}{{exeExt}} ./cmd/{{.ITEM}}/
 
   run:
     desc: "Run server"
@@ -77,14 +88,7 @@ tasks:
     sources:
       - "**/*.go"
     cmds:
-      - defer: rm -f {{.TMP_SOCKET_FILE}}
       - go test -timeout 30s {{.CLI_ARGS}} ./...
-    env:
-      TEST_LDLM_IPC_SOCKET_FILE: "{{.TMP_SOCKET_FILE}}"
-      LDLM_IPC_SOCKET_FILE: "{{.TMP_SOCKET_FILE}}"
-    vars:
-      TMP_SOCKET_FILE:
-        sh: "mktemp -u | awk '{ print $1 \".ldlm-sock\" }'"
 
   clean:
     desc: "Clean up build artifacts and cache"
@@ -92,7 +96,7 @@ tasks:
       # Cache
       - go clean -cache -testcache
       # Build artifacts
-      - rm -rf ./build
+      - rm -rf ./dist
       # Nonsense added by vscode c# extension
       - rm -rf go-ldlm.sln examples/c#/bin examples/c#/obj
 
@@ -179,7 +183,7 @@ tasks:
   license_headers:
     desc: "Make sure source files have headers"
     cmds:
-      - addlicense -check -ignore '**/.*' -ignore '.*/**' ./
+      - addlicense -check -ignore '**/.*' -ignore '.*/**' -ignore '**/.venv/**' ./
 
   add_license_headers:
     desc: "Make sure source files have headers"
@@ -187,7 +191,7 @@ tasks:
     preconditions:
       - test "{{.CLI_ARGS}}" != ""
     cmds:
-      - addlicense -ignore '**/.*' -ignore '.*/**' ./ {{.CLI_ARGS}}
+      - addlicense -ignore '**/.*' -ignore '.*/**' {{.CLI_ARGS}}
 
   check_readme_google:
     desc: "Make sure README.md has common items"
