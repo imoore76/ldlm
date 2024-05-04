@@ -111,6 +111,8 @@ func (m *Manager) shutdown() {
 	slog.Warn("Stopping lock garbage collector")
 	m.stopCh <- struct{}{}
 
+	<-m.stopCh
+
 	// Clear all locks
 	m.lockGc(0 * time.Second)
 

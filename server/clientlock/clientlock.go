@@ -13,24 +13,27 @@
 // limitations under the License.
 
 /*
-This file contains the ClientLock struct definition and methods
+This file contains a Lock struct definition which represents a lock held by a lock server client.
 */
 package clientlock
 
-// Client lock represents a lock held by a lock server client
+// Lock represents a lock held by a lock server client
 type Lock struct {
 	name string
 	key  string
 }
 
+// Name returns the name of the lock
 func (c Lock) Name() string {
 	return c.name
 }
 
+// Key returns the key for the lock
 func (c Lock) Key() string {
 	return c.key
 }
 
+// New creates a new Lock with the provided name and key
 func New(name string, key string) Lock {
 	return Lock{name: name, key: key}
 }
