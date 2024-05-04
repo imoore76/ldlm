@@ -69,12 +69,8 @@ func TestShutdownManagerLock(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	defer func() {
-		r := recover()
-		assert.NotNil(r)
-		assert.Equal(r, "Attempted to get lock from a stopped Manager")
-	}()
-	lm.Lock("mylock", "key", context.Background())
+	_, err := lm.Lock("mylock", "key", context.Background())
+	assert.ErrorIs(lock.ErrManagerShutdown, err)
 }
 
 func TestShutdownManagerTryLock(t *testing.T) {
@@ -84,12 +80,8 @@ func TestShutdownManagerTryLock(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	defer func() {
-		r := recover()
-		assert.NotNil(r)
-		assert.Equal(r, "Attempted to get lock from a stopped Manager")
-	}()
-	lm.TryLock("mylock", "key")
+	_, err := lm.TryLock("mylock", "key")
+	assert.ErrorIs(lock.ErrManagerShutdown, err)
 }
 
 func TestManagedLock(t *testing.T) {

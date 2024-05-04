@@ -34,13 +34,15 @@ type Lock struct {
 	key    string
 	keyMtx chan struct{}
 	mtx    chan struct{}
+	ctx    context.Context
 }
 
 // NewLock initializes and returns a new Lock instance.
-func NewLock() *Lock {
+func NewLock(ctx context.Context) *Lock {
 	return &Lock{
 		keyMtx: make(chan struct{}, 1),
 		mtx:    make(chan struct{}, 1),
+		ctx:    ctx,
 	}
 }
 
@@ -62,6 +64,11 @@ func (l *Lock) unlockKey() {
 func (l *Lock) Lock(key string, ctx context.Context) chan interface{} {
 	rChan := make(chan interface{})
 	go func() {
+		if l.ctx.Err() != nil {
+			rChan <- l.ctx.Err()
+			return
+		}
+
 		select {
 		case l.mtx <- struct{}{}:
 			l.lockKey()
@@ -70,6 +77,8 @@ func (l *Lock) Lock(key string, ctx context.Context) chan interface{} {
 			rChan <- struct{}{}
 		case <-ctx.Done(): // Cancelled or timed out
 			rChan <- context.Cause(ctx)
+		case <-l.ctx.Done():
+			rChan <- context.Cause(l.ctx)
 		}
 	}()
 	return rChan
@@ -77,6 +86,11 @@ func (l *Lock) Lock(key string, ctx context.Context) chan interface{} {
 
 // TryLock tries to obtain the lock and immediately fails or succeeds
 func (l *Lock) TryLock(key string) (bool, error) {
+	// Return context error if it exists
+	if l.ctx.Err() != nil {
+		return false, l.ctx.Err()
+	}
+
 	select {
 	case l.mtx <- struct{}{}:
 		l.lockKey()
@@ -93,6 +107,11 @@ func (l *Lock) TryLock(key string) (bool, error) {
 
 // Unlock surprisingly unlocks the lock
 func (l *Lock) Unlock(k string) (bool, error) {
+	// Return context error if it exists
+	if l.ctx.Err() != nil {
+		return false, l.ctx.Err()
+	}
+
 	l.lockKey()
 	defer l.unlockKey()
 

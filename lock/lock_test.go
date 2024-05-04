@@ -27,8 +27,8 @@ import (
 
 func TestLock(t *testing.T) {
 	assert := assert.New(t)
-
-	lk := lock.NewLock()
+	lctx := context.Background()
+	lk := lock.NewLock(lctx)
 	ctx := context.Background()
 	ch := lk.Lock("key", ctx)
 
@@ -83,7 +83,8 @@ func TestLock(t *testing.T) {
 func TestLockTimeout(t *testing.T) {
 	assert := assert.New(t)
 
-	lk := lock.NewLock()
+	lctx := context.Background()
+	lk := lock.NewLock(lctx)
 
 	locked, err := lk.TryLock("key")
 	assert.Nil(err)
@@ -112,7 +113,8 @@ func TestLockTimeout(t *testing.T) {
 func TestUnlockInvalidKey(t *testing.T) {
 	assert := assert.New(t)
 
-	lk := lock.NewLock()
+	lctx := context.Background()
+	lk := lock.NewLock(lctx)
 	locked, err := lk.TryLock("key")
 	assert.Nil(err)
 	assert.True(locked)

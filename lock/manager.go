@@ -23,11 +23,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
-var ErrLockDoesNotExist = errors.New("a lock by that name does not exist")
+var (
+	ErrLockDoesNotExist = errors.New("a lock by that name does not exist")
+	ErrManagerShutdown  = errors.New("lock manager is shutdown")
+)
 
 // A ManagedLock is a lock with a some record keeping fields for
 // garbage collection
@@ -47,20 +51,23 @@ type LockInfo struct {
 }
 
 // NewManagedLock returns a managed lock object with the given name
-func NewManagedLock(name string) *ManagedLock {
+func NewManagedLock(name string, ctx context.Context) *ManagedLock {
 	return &ManagedLock{
 		Name:         name,
 		lastAccessed: time.Now(),
-		Lock:         NewLock(),
+		Lock:         NewLock(ctx),
 	}
 }
 
 // A Manager polices access to a group of locks addressable by their names
 type Manager struct {
-	lockCh     chan struct{}
-	locks      map[string]*ManagedLock
-	stopCh     chan struct{}
-	isShutdown atomic.Bool
+	lockCh        chan struct{}
+	locks         map[string]*ManagedLock
+	stopCh        chan struct{}
+	isShutdown    atomic.Bool
+	shutdownMtx   sync.RWMutex
+	cancelCauseFn context.CancelCauseFunc
+	ctx           context.Context
 }
 
 // NewManager creates a new Manager with the given garbage collection interval, minimum idle time, and logger, and returns a pointer to the Manager.
@@ -73,21 +80,30 @@ type Manager struct {
 // - *Manager: a pointer to the newly created Manager
 func NewManager(gcInterval time.Duration, gcMinIdle time.Duration) (*Manager, func()) {
 
+	ctx, cancelCauseFn := context.WithCancelCause(context.Background())
+
 	m := &Manager{
-		lockCh: make(chan struct{}, 1),
-		locks:  make(map[string]*ManagedLock),
-		stopCh: make(chan struct{}),
+		lockCh:        make(chan struct{}, 1),
+		locks:         make(map[string]*ManagedLock),
+		stopCh:        make(chan struct{}),
+		shutdownMtx:   sync.RWMutex{},
+		cancelCauseFn: cancelCauseFn,
+		ctx:           ctx,
 	}
 
 	// Start lock garbage collection go routine
 	go func() {
 		for {
+			doGc := time.NewTimer(gcInterval)
 			select {
 			case <-m.stopCh:
 				slog.Warn("Garbage collection exiting")
 				close(m.stopCh)
+				if !doGc.Stop() {
+					<-doGc.C
+				}
 				return
-			case <-time.After(gcInterval):
+			case <-doGc.C:
 				m.lockGc(gcMinIdle)
 			}
 		}
@@ -107,13 +123,17 @@ func (m *Manager) unlock() {
 
 // shutdown stops the lock garbage collector and clears all locks
 func (m *Manager) shutdown() {
+	m.shutdownMtx.Lock()
+	defer m.shutdownMtx.Unlock()
 
 	slog.Warn("Stopping lock garbage collector")
 	m.stopCh <- struct{}{}
-
 	<-m.stopCh
 
-	// Clear all locks
+	// Cancel the context for locks
+	m.cancelCauseFn(ErrManagerShutdown)
+
+	// Clear all unlocked locks
 	m.lockGc(0 * time.Second)
 
 	m.isShutdown.Store(true)
@@ -123,10 +143,6 @@ func (m *Manager) shutdown() {
 func (m *Manager) getLock(name string, create bool) *ManagedLock {
 	m.lock()
 	defer m.unlock()
-
-	if m.isShutdown.Load() {
-		panic("Attempted to get lock from a stopped Manager")
-	}
 
 	l, ok := m.locks[name]
 	if ok {
@@ -138,12 +154,19 @@ func (m *Manager) getLock(name string, create bool) *ManagedLock {
 		return nil
 	}
 
-	m.locks[name] = NewManagedLock(name)
+	m.locks[name] = NewManagedLock(name, m.ctx)
 	return m.locks[name]
 }
 
 // Lock obtains a lock on the named lock. It blocks until a lock is obtained or is canceled / timed out by context
 func (m *Manager) Lock(name string, key string, ctx context.Context) (chan interface{}, error) {
+	m.shutdownMtx.RLock()
+	defer m.shutdownMtx.RUnlock()
+
+	if m.isShutdown.Load() {
+		return nil, ErrManagerShutdown
+	}
+
 	l := m.getLock(name, true)
 	if l.deleted {
 		panic(fmt.Sprintf("Tried to lock deleted lock %s", name))
@@ -153,6 +176,13 @@ func (m *Manager) Lock(name string, key string, ctx context.Context) (chan inter
 
 // TryLock tries lock the named lock and immediately fails / succeeds
 func (m *Manager) TryLock(name string, key string) (bool, error) {
+	m.shutdownMtx.RLock()
+	defer m.shutdownMtx.RUnlock()
+
+	if m.isShutdown.Load() {
+		return false, ErrManagerShutdown
+	}
+
 	l := m.getLock(name, true)
 	if l.deleted {
 		panic(fmt.Sprintf("Tried to lock deleted lock %s", name))
@@ -162,6 +192,13 @@ func (m *Manager) TryLock(name string, key string) (bool, error) {
 
 // Unlock surprisingly unlocks the named lock
 func (m *Manager) Unlock(name string, key string) (bool, error) {
+	m.shutdownMtx.RLock()
+	defer m.shutdownMtx.RUnlock()
+
+	if m.isShutdown.Load() {
+		return false, ErrManagerShutdown
+	}
+
 	l := m.getLock(name, false)
 	if l == nil {
 		return false, ErrLockDoesNotExist
