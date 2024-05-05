@@ -444,8 +444,10 @@ func (l *LockServer) onTimeoutFunc(ctx context.Context, name string, key string,
 		// handler has already removed the lock from the session manager
 		defer func() {
 			if r := recover(); r != nil {
-				ctxLog.Error("Error removing session",
+				ctxLog.Error("Error removing lock from session",
 					"session_id", sessionId,
+					"lock", name,
+					"error", r.(string),
 				)
 			}
 		}()
