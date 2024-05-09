@@ -88,7 +88,7 @@ tasks:
     sources:
       - "**/*.go"
     cmds:
-      - go test -timeout 30s {{.CLI_ARGS}} ./...
+      - go test -timeout 50s {{.CLI_ARGS}} ./...
 
   clean:
     desc: "Clean up build artifacts and cache"

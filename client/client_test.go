@@ -20,6 +20,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -27,7 +28,10 @@ import (
 	"github.com/google/uuid"
 	pb "github.com/imoore76/go-ldlm/protos"
 	"github.com/stretchr/testify/assert"
+
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestLock_HappyPath(t *testing.T) {
@@ -326,6 +330,7 @@ func TestNewClient_FullOptions(t *testing.T) {
 		TlsCert:       "../testcerts/client_cert.pem",
 		TlsKey:        "../testcerts/client_key.pem",
 		Password:      "password",
+		MaxRetries:    3,
 	}
 	ctx := context.Background()
 	c, err := New(context.Background(), conf)
@@ -383,6 +388,82 @@ func TestClose(t *testing.T) {
 
 }
 
+func TestRpcWithRetry(t *testing.T) {
+	defer patchRetryDelaySeconds(0)()
+
+	responses := []struct {
+		res *pb.LockResponse
+		err error
+	}{
+		{nil, status.New(codes.Unavailable, "blah").Err()},
+		{nil, status.New(codes.Unavailable, "blah2").Err()},
+		{&pb.LockResponse{Locked: true, Name: "foo"}, nil},
+	}
+
+	var f = func() (*pb.LockResponse, error) {
+		r := responses[0]
+		responses = responses[1:]
+		return r.res, r.err
+	}
+	assert := assert.New(t)
+
+	l, err := rpcWithRetry(4, f)
+
+	assert.Nil(err)
+	assert.True(l.Locked)
+	assert.Equal("foo", l.Name)
+}
+
+func TestRpcWithRetry_MaxRetries(t *testing.T) {
+	defer patchRetryDelaySeconds(0)()
+
+	responses := []struct {
+		res *pb.LockResponse
+		err error
+	}{
+		{nil, status.New(codes.Unavailable, "blah").Err()},
+		{nil, status.New(codes.Unavailable, "blah2").Err()},
+		{nil, status.New(codes.Unavailable, "blah3").Err()},
+	}
+
+	var f = func() (*pb.LockResponse, error) {
+		r := responses[0]
+		responses = responses[1:]
+		return r.res, r.err
+	}
+	assert := assert.New(t)
+
+	l, err := rpcWithRetry(2, f)
+
+	assert.Nil(l)
+	assert.NotNil(err)
+	assert.Equal("rpc error: code = Unavailable desc = blah3", err.Error())
+}
+
+func TestRpcWithRetry_OtherError(t *testing.T) {
+	defer patchRetryDelaySeconds(0)()
+
+	responses := []struct {
+		res *pb.LockResponse
+		err error
+	}{
+		{nil, errors.New("ahhh")},
+	}
+
+	var f = func() (*pb.LockResponse, error) {
+		r := responses[0]
+		responses = responses[1:]
+		return r.res, r.err
+	}
+	assert := assert.New(t)
+
+	l, err := rpcWithRetry(2, f)
+
+	assert.Nil(l)
+	assert.NotNil(err)
+	assert.Equal("ahhh", err.Error())
+}
+
 func TestRpcErrorToError(t *testing.T) {
 	codeMap := map[int32]error{
 		1: ErrLockDoesNotExist,
@@ -404,6 +485,14 @@ func TestRpcErrorToError(t *testing.T) {
 	assert.NotNil(err)
 	assert.Equal("unknown RPC error. code: 22 message: other error", err.Error())
 
+}
+
+func patchRetryDelaySeconds(new int) func() {
+	old := retryDelaySeconds
+	retryDelaySeconds = new
+	return func() {
+		retryDelaySeconds = old
+	}
 }
 
 func patchMinRefreshSeconds(new uint32) func() {

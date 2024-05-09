@@ -33,9 +33,11 @@ import (
 	pb "github.com/imoore76/go-ldlm/protos"
 	"github.com/imoore76/go-ldlm/server"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 // Re-namespace errors here so they can be easily used by clients
@@ -47,7 +49,12 @@ var (
 	ErrLockDoesNotExistOrInvalidKey = server.ErrLockDoesNotExistOrInvalidKey
 )
 
-var minRefreshSeconds = uint32(10)
+var (
+	// Minimum amount of time to wait before refreshing a lock
+	minRefreshSeconds = uint32(10)
+	// The delay between failed retries
+	retryDelaySeconds = 3
+)
 
 type Config struct {
 	Address       string // host:port address of ldlm server
@@ -58,6 +65,7 @@ type Config struct {
 	TlsCert       string // file containing a TLS certificate for this client
 	TlsKey        string // file containing a TLS key for this client
 	Password      string // password to send
+	MaxRetries    int    // maximum number of retries on network error or server unreachable
 }
 
 // Simple lock struct returned to clients
@@ -97,6 +105,7 @@ type client struct {
 	refreshMap     map[string]*refresher
 	refreshMapLock sync.Mutex
 	noAutoRefresh  bool
+	maxRetries     int
 }
 
 // New creates a new client instance with the given configuration.
@@ -104,11 +113,12 @@ type client struct {
 // Parameters:
 // - ctx: The context.Context used for the client.
 // - conf: The Config struct containing the client configuration.
+// - opts: Optional grpc.DialOptions for the client.
 //
 // Returns:
 // - *client: The newly created client instance.
 // - error: An error if the client creation fails.
-func New(ctx context.Context, conf *Config) (*client, error) {
+func New(ctx context.Context, conf *Config, opts ...grpc.DialOption) (*client, error) {
 	creds := insecure.NewCredentials()
 	if conf.UseTls || conf.TlsCert != "" {
 		tlsc := &tls.Config{
@@ -136,9 +146,10 @@ func New(ctx context.Context, conf *Config) (*client, error) {
 		creds = credentials.NewTLS(tlsc)
 	}
 
+	opts = append(opts, grpc.WithTransportCredentials(creds))
 	conn, err := grpc.Dial(
 		conf.Address,
-		grpc.WithTransportCredentials(creds),
+		opts...,
 	)
 	if err != nil {
 		return nil, err
@@ -155,6 +166,7 @@ func New(ctx context.Context, conf *Config) (*client, error) {
 		refreshMap:     make(map[string]*refresher),
 		refreshMapLock: sync.Mutex{},
 		noAutoRefresh:  conf.NoAutoRefresh,
+		maxRetries:     conf.MaxRetries,
 	}, nil
 }
 
@@ -169,11 +181,16 @@ func New(ctx context.Context, conf *Config) (*client, error) {
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock acquisition fails.
 func (c *client) Lock(name string, waitTimeoutSeconds *uint32, lockTimeoutSeconds *uint32) (*Lock, error) {
-	r, err := c.pbc.Lock(c.ctx, &pb.LockRequest{
-		Name:               name,
-		WaitTimeoutSeconds: waitTimeoutSeconds,
-		LockTimeoutSeconds: lockTimeoutSeconds,
-	})
+	r, err := rpcWithRetry(
+		c.maxRetries,
+		func() (*pb.LockResponse, error) {
+			return c.pbc.Lock(c.ctx, &pb.LockRequest{
+				Name:               name,
+				WaitTimeoutSeconds: waitTimeoutSeconds,
+				LockTimeoutSeconds: lockTimeoutSeconds,
+			})
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -195,9 +212,11 @@ func (c *client) Lock(name string, waitTimeoutSeconds *uint32, lockTimeoutSecond
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock acquisition fails.
 func (c *client) TryLock(name string, lockTimeoutSeconds *uint32) (*Lock, error) {
-	r, err := c.pbc.TryLock(c.ctx, &pb.TryLockRequest{
-		Name:               name,
-		LockTimeoutSeconds: lockTimeoutSeconds,
+	r, err := rpcWithRetry(c.maxRetries, func() (*pb.LockResponse, error) {
+		return c.pbc.TryLock(c.ctx, &pb.TryLockRequest{
+			Name:               name,
+			LockTimeoutSeconds: lockTimeoutSeconds,
+		})
 	})
 	if err != nil {
 		return nil, err
@@ -218,10 +237,15 @@ func (c *client) TryLock(name string, lockTimeoutSeconds *uint32) (*Lock, error)
 // - bool: True if the lock was successfully released, false otherwise.
 // - error: An error if the lock release fails.
 func (c *client) Unlock(name string, key string) (bool, error) {
-	r, err := c.pbc.Unlock(c.ctx, &pb.UnlockRequest{
-		Name: name,
-		Key:  key,
-	})
+	r, err := rpcWithRetry(
+		c.maxRetries,
+		func() (*pb.UnlockResponse, error) {
+			return c.pbc.Unlock(c.ctx, &pb.UnlockRequest{
+				Name: name,
+				Key:  key,
+			})
+		},
+	)
 	if err != nil {
 		return false, err
 	}
@@ -242,11 +266,14 @@ func (c *client) Unlock(name string, key string) (bool, error) {
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock refresh fails.
 func (c *client) RefreshLock(name string, key string, lockTimeoutSeconds uint32) (*Lock, error) {
-	r, err := c.pbc.RefreshLock(c.ctx, &pb.RefreshLockRequest{
-		Name:               name,
-		Key:                key,
-		LockTimeoutSeconds: lockTimeoutSeconds,
-	})
+	r, err := rpcWithRetry(
+		c.maxRetries,
+		func() (*pb.LockResponse, error) {
+			return c.pbc.RefreshLock(c.ctx, &pb.RefreshLockRequest{
+				Name: name, Key: key, LockTimeoutSeconds: lockTimeoutSeconds,
+			})
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -356,12 +383,19 @@ func (r *refresher) Start() {
 	}
 	go func() {
 		for {
+			t := time.NewTimer(time.Duration(interval) * time.Second)
 			select {
 			case <-r.client.ctx.Done():
+				if !t.Stop() {
+					<-t.C
+				}
 				return
 			case <-r.stop:
+				if !t.Stop() {
+					<-t.C
+				}
 				return
-			case <-time.After(time.Duration(interval) * time.Second):
+			case <-t.C:
 				if _, err := r.client.RefreshLock(r.name, r.key, r.lockTimeoutSeconds); err != nil {
 					panic("error refreshing lock " + r.name + " " + err.Error())
 				}
@@ -406,4 +440,34 @@ func rpcErrorToError(err *pb.Error) error {
 	}
 
 	return fmt.Errorf("unknown RPC error. code: %d message: %s", err.Code, err.Message)
+}
+
+// rpcWithRetry performs an RPC call with retry logic.
+//
+// It takes two parameters:
+// - maxRetries: an integer representing the maximum number of retries.
+// - f: a function that performs the RPC call and returns a value of type T and an error.
+//
+// The function returns a value of type T and an error.
+func rpcWithRetry[T any](maxRetries int, f func() (T, error)) (T, error) {
+
+	var retries int = 0
+	for {
+		r, err := f()
+		if err != nil {
+			if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable {
+				if retries >= maxRetries {
+					return r, err
+				}
+				retries++
+				time.Sleep(time.Duration(retryDelaySeconds) * time.Second)
+				continue
+			} else {
+				return r, err
+			}
+
+		} else {
+			return r, nil
+		}
+	}
 }

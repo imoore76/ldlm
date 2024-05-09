@@ -14,7 +14,7 @@ The just run `go mod tidy`
 ## Usage
 
 ### Create a Client
-A client takes a context and a pointer to a client.Config object.
+A client takes a context and a pointer to a client.Config object. You can Cancel the context to abort a client's operations.
 
 ```go
 c := client.New(context.Background(), &client.Config{
@@ -22,9 +22,11 @@ c := client.New(context.Background(), &client.Config{
 })
 ```
 
+The client also takes an arbitrary number of gRPC [dial options](https://pkg.go.dev/google.golang.org/grpc#DialOption).
+
 #### Config
 
-client.Config members
+client.Config properties
 | Name | Type | Description |
 | :--- | :--- | :--- |
 | `Address` | string  | host:port address of ldlm server |
@@ -35,6 +37,7 @@ client.Config members
 | `CAFile`   | string |  File containing a CA certificate |
 | `TlsCert`  |  string  | File containing a TLS certificate for this client |
 | `TlsKey`   |  string  |  File containing a TLS key for this client |
+| `MaxRetries`  | int  |  Number of times to retry requests that have failed due to network errors |
 
 
 ### Basic Concepts
@@ -70,8 +73,6 @@ To `Unlock()` or refresh a lock, you must use the lock key that was issued from 
 | `*uint32` | The lock timeout. Use `nil` or `0` for no timeout.
 
 It returns a `*Lock` and an `error`.
-
-
 
 #### Examples
 
