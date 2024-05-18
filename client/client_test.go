@@ -47,9 +47,9 @@ func TestLock_HappyPath(t *testing.T) {
 	assert.True(l.Locked)
 	assert.Equal("test", l.Name)
 
-	assert.Empty(c.refreshMap)
-
 	l.Unlock()
+
+	assert.True(isEmptySyncMap(&c.refreshMap))
 
 	assert.Equal([]*pb.LockRequest{{Name: "test"}}, gClient.lockRequests)
 	assert.Equal([]*pb.UnlockRequest{{Name: "test", Key: l.Key}}, gClient.unlockRequests)
@@ -71,7 +71,8 @@ func TestLock_LockTimeout(t *testing.T) {
 	assert.Nil(err)
 	assert.True(l.Locked)
 	assert.Equal("test", l.Name)
-	assert.Empty(c.refreshMap)
+
+	assert.True(isEmptySyncMap(&c.refreshMap))
 
 	l.Unlock()
 
@@ -121,7 +122,7 @@ func TestLock_LockTimeoutAutoRefreshNotLocked(t *testing.T) {
 	assert.False(l.Locked)
 	assert.Equal("test", l.Name)
 
-	assert.Empty(c.refreshMap)
+	assert.True(isEmptySyncMap(&c.refreshMap))
 
 	assert.Equal([]*pb.LockRequest{{Name: "test", WaitTimeoutSeconds: &to, LockTimeoutSeconds: &to}}, gClient.lockRequests)
 	assert.Empty(gClient.refreshLockRequests)
@@ -203,7 +204,7 @@ func TestTryLock_LockTimeout(t *testing.T) {
 	l, err := c.TryLock("test", &to)
 
 	assert := assert.New(t)
-	assert.Empty(c.refreshMap)
+	assert.True(isEmptySyncMap(&c.refreshMap))
 	assert.Nil(err)
 	assert.True(l.Locked)
 	assert.Equal("test", l.Name)
@@ -257,7 +258,7 @@ func TestTryLock_LockTimeoutAutoRefreshNotLocked(t *testing.T) {
 	assert.False(l.Locked)
 	assert.Equal("test", l.Name)
 
-	assert.Empty(c.refreshMap)
+	assert.True(isEmptySyncMap(&c.refreshMap))
 
 	l.Unlock()
 	assert.Equal([]*pb.TryLockRequest{{Name: "test", LockTimeoutSeconds: &to}}, gClient.tryLockRequests)
@@ -282,7 +283,7 @@ func TestTryLock_Error(t *testing.T) {
 	assert.Equal("test", l.Name)
 	l.Unlock()
 
-	assert.Empty(c.refreshMap)
+	assert.True(isEmptySyncMap(&c.refreshMap))
 
 	assert.Equal([]*pb.TryLockRequest{{Name: "test", LockTimeoutSeconds: &to}}, gClient.tryLockRequests)
 	assert.Empty(gClient.refreshLockRequests)
@@ -616,4 +617,13 @@ func (t *testGrpcClient) Unlock(ctx context.Context, in *pb.UnlockRequest, opts 
 	t.unlockResponses = t.unlockResponses[1:]
 
 	return resp, nil
+}
+
+func isEmptySyncMap(m *sync.Map) bool {
+	found := false
+	m.Range(func(_, _ interface{}) bool {
+		found = true
+		return false
+	})
+	return !found
 }
