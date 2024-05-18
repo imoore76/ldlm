@@ -359,12 +359,12 @@ func TestUnlock_StopRefresh(t *testing.T) {
 	gClient := newTestGrpcClient(nil, nil, nil, nil)
 	c := newTestClient(&Config{}, gClient)
 	r := NewRefresher(c, "test", "foo", 30)
-	c.refreshMap["test"] = r
+	c.refreshMap.Store("test", r)
 	time.Sleep(time.Duration(1500) * time.Millisecond)
 	c.Unlock("test", "foo")
 	time.Sleep(time.Duration(2000) * time.Millisecond)
 
-	_, ok := c.refreshMap["test"]
+	_, ok := c.refreshMap.Load("test")
 	assert.False(t, ok)
 	assert.Len(t, gClient.refreshLockRequests, 1)
 
@@ -376,7 +376,7 @@ func TestClose(t *testing.T) {
 	c := newTestClient(&Config{}, gClient)
 
 	r := NewRefresher(c, "test", "foo", 30)
-	c.refreshMap["test"] = r
+	c.refreshMap.Store("test", r)
 	time.Sleep(time.Duration(1500) * time.Millisecond)
 	c.Close()
 	time.Sleep(time.Duration(2000) * time.Millisecond)
@@ -513,12 +513,11 @@ func (c *closer) Close() error { c.called = true; return nil }
 func newTestClient(conf *Config, gClient *testGrpcClient) *client {
 
 	return &client{
-		conn:           &closer{},
-		pbc:            gClient,
-		ctx:            context.Background(),
-		refreshMap:     make(map[string]*refresher),
-		refreshMapLock: sync.Mutex{},
-		noAutoRefresh:  conf.NoAutoRefresh,
+		conn:          &closer{},
+		pbc:           gClient,
+		ctx:           context.Background(),
+		refreshMap:    sync.Map{},
+		noAutoRefresh: conf.NoAutoRefresh,
 	}
 }
 

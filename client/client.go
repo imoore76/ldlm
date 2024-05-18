@@ -99,13 +99,12 @@ type Closer interface {
 }
 
 type client struct {
-	conn           Closer
-	pbc            pb.LDLMClient
-	ctx            context.Context
-	refreshMap     map[string]*refresher
-	refreshMapLock sync.Mutex
-	noAutoRefresh  bool
-	maxRetries     int
+	conn          Closer
+	pbc           pb.LDLMClient
+	ctx           context.Context
+	refreshMap    sync.Map
+	noAutoRefresh bool
+	maxRetries    int
 }
 
 // New creates a new client instance with the given configuration.
@@ -160,13 +159,12 @@ func New(ctx context.Context, conf *Config, opts ...grpc.DialOption) (*client, e
 	}
 
 	return &client{
-		conn:           conn,
-		pbc:            pb.NewLDLMClient(conn),
-		ctx:            ctx,
-		refreshMap:     make(map[string]*refresher),
-		refreshMapLock: sync.Mutex{},
-		noAutoRefresh:  conf.NoAutoRefresh,
-		maxRetries:     conf.MaxRetries,
+		conn:          conn,
+		pbc:           pb.NewLDLMClient(conn),
+		ctx:           ctx,
+		refreshMap:    sync.Map{},
+		noAutoRefresh: conf.NoAutoRefresh,
+		maxRetries:    conf.MaxRetries,
 	}, nil
 }
 
@@ -285,11 +283,11 @@ func (c *client) RefreshLock(name string, key string, lockTimeoutSeconds uint32)
 // No parameters.
 // Returns an error if the connection close fails.
 func (c *client) Close() error {
-	c.refreshMapLock.Lock()
-	defer c.refreshMapLock.Unlock()
-	for _, refresher := range c.refreshMap {
+	c.refreshMap.Range(func(k, v interface{}) bool {
+		refresher := v.(*refresher)
 		refresher.Stop()
-	}
+		return true
+	})
 
 	return c.conn.Close()
 }
@@ -306,14 +304,10 @@ func (c *client) maybeCreateRefresher(r *pb.LockResponse, lockTimeoutSeconds *ui
 	}
 
 	// Create and add lock to refresh map
-	c.refreshMapLock.Lock()
-	defer c.refreshMapLock.Unlock()
-
-	if _, ok := c.refreshMap[r.Name]; ok {
+	rfresh := NewRefresher(c, r.Name, r.Key, *lockTimeoutSeconds)
+	if _, loaded := c.refreshMap.LoadOrStore(r.Name, rfresh); loaded {
 		panic("client out of sync - lock already exists in refresh map")
 	}
-
-	c.refreshMap[r.Name] = NewRefresher(c, r.Name, r.Key, *lockTimeoutSeconds)
 }
 
 // maybeRemoveRefresher removes a refresher from the refresh map if auto-refresh is enabled and the
@@ -329,13 +323,10 @@ func (c *client) maybeRemoveRefresher(name string) {
 		return
 	}
 
-	c.refreshMapLock.Lock()
-	refresher, ok := c.refreshMap[name]
-	c.refreshMapLock.Unlock()
+	r, ok := c.refreshMap.LoadAndDelete(name)
 
 	if ok {
-		delete(c.refreshMap, name)
-		refresher.Stop()
+		r.(*refresher).Stop()
 	}
 }
 
