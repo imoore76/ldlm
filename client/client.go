@@ -117,7 +117,7 @@ type client struct {
 // Returns:
 // - *client: The newly created client instance.
 // - error: An error if the client creation fails.
-func New(ctx context.Context, conf *Config, opts ...grpc.DialOption) (*client, error) {
+func New(ctx context.Context, conf Config, opts ...grpc.DialOption) (*client, error) {
 	creds := insecure.NewCredentials()
 	if conf.UseTls || conf.TlsCert != "" {
 		tlsc := &tls.Config{
@@ -172,21 +172,28 @@ func New(ctx context.Context, conf *Config, opts ...grpc.DialOption) (*client, e
 //
 // Parameters:
 // - name: The name of the lock to acquire.
-// - waitTimeoutSeconds: The maximum time to wait for the lock in seconds. If nil, there is no wait timeout.
-// - lockTimeoutSeconds: The duration the lock will be held in seconds. If nil, there is no lock timeout.
+// - lockTimeoutSeconds: The duration the lock will be held in seconds. If 0, there is no lock timeout.
+// - waitTimeoutSeconds: The maximum time to wait for the lock in seconds. If 0, there is no wait timeout.
 //
 // Returns:
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock acquisition fails.
-func (c *client) Lock(name string, waitTimeoutSeconds *uint32, lockTimeoutSeconds *uint32) (*Lock, error) {
+func (c *client) Lock(name string, lockTimeoutSeconds uint32, waitTimeoutSeconds uint32) (*Lock, error) {
+	req := &pb.LockRequest{
+		Name: name,
+	}
+	if waitTimeoutSeconds > 0 {
+		wts := uint32(waitTimeoutSeconds)
+		req.WaitTimeoutSeconds = &wts
+	}
+	if lockTimeoutSeconds > 0 {
+		lts := uint32(lockTimeoutSeconds)
+		req.LockTimeoutSeconds = &lts
+	}
 	r, err := rpcWithRetry(
 		c.maxRetries,
 		func() (*pb.LockResponse, error) {
-			return c.pbc.Lock(c.ctx, &pb.LockRequest{
-				Name:               name,
-				WaitTimeoutSeconds: waitTimeoutSeconds,
-				LockTimeoutSeconds: lockTimeoutSeconds,
-			})
+			return c.pbc.Lock(c.ctx, req)
 		},
 	)
 	if err != nil {
@@ -204,17 +211,21 @@ func (c *client) Lock(name string, waitTimeoutSeconds *uint32, lockTimeoutSecond
 //
 // Parameters:
 // - name: The name of the lock to acquire.
-// - lockTimeoutSeconds: The duration the lock will be held in seconds. If nil, there is no lock timeout.
+// - lockTimeoutSeconds: The duration the lock will be held in seconds. If 0, there is no lock timeout.
 //
 // Returns:
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock acquisition fails.
-func (c *client) TryLock(name string, lockTimeoutSeconds *uint32) (*Lock, error) {
+func (c *client) TryLock(name string, lockTimeoutSeconds uint32) (*Lock, error) {
+	req := &pb.TryLockRequest{
+		Name: name,
+	}
+	if lockTimeoutSeconds > 0 {
+		lts := uint32(lockTimeoutSeconds)
+		req.LockTimeoutSeconds = &lts
+	}
 	r, err := rpcWithRetry(c.maxRetries, func() (*pb.LockResponse, error) {
-		return c.pbc.TryLock(c.ctx, &pb.TryLockRequest{
-			Name:               name,
-			LockTimeoutSeconds: lockTimeoutSeconds,
-		})
+		return c.pbc.TryLock(c.ctx, req)
 	})
 	if err != nil {
 		return nil, err
@@ -297,14 +308,14 @@ func (c *client) Close() error {
 //
 // Parameters:
 // - r: A pointer to a LockResponse struct containing the lock information.
-// - lockTimeoutSeconds: A pointer to a uint32 representing the lock timeout in seconds.
-func (c *client) maybeCreateRefresher(r *pb.LockResponse, lockTimeoutSeconds *uint32) {
-	if !r.Locked || c.noAutoRefresh || lockTimeoutSeconds == nil || *lockTimeoutSeconds == 0 {
+// - lockTimeoutSeconds: A uint32 representing the lock timeout in seconds.
+func (c *client) maybeCreateRefresher(r *pb.LockResponse, lockTimeoutSeconds uint32) {
+	if !r.Locked || c.noAutoRefresh || lockTimeoutSeconds == 0 {
 		return
 	}
 
 	// Create and add lock to refresh map
-	rfresh := NewRefresher(c, r.Name, r.Key, *lockTimeoutSeconds)
+	rfresh := NewRefresher(c, r.Name, r.Key, lockTimeoutSeconds)
 	if _, loaded := c.refreshMap.LoadOrStore(r.Name, rfresh); loaded {
 		panic("client out of sync - lock already exists in refresh map")
 	}

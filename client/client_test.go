@@ -40,7 +40,7 @@ func TestLock_HappyPath(t *testing.T) {
 		NoAutoRefresh: true,
 	}, gClient)
 
-	l, err := c.Lock("test", nil, nil)
+	l, err := c.Lock("test", 0, 0)
 
 	assert := assert.New(t)
 	assert.Nil(err)
@@ -65,7 +65,7 @@ func TestLock_LockTimeout(t *testing.T) {
 	}, gClient)
 
 	to := uint32(24)
-	l, err := c.Lock("test", nil, &to)
+	l, err := c.Lock("test", to, 0)
 
 	assert := assert.New(t)
 	assert.Nil(err)
@@ -88,7 +88,7 @@ func TestLock_LockTimeoutAutoRefresh(t *testing.T) {
 	c := newTestClient(&Config{}, gClient)
 
 	to := uint32(5)
-	l, err := c.Lock("test", nil, &to)
+	l, err := c.Lock("test", to, 0)
 
 	assert := assert.New(t)
 	assert.Nil(err)
@@ -115,7 +115,7 @@ func TestLock_LockTimeoutAutoRefreshNotLocked(t *testing.T) {
 	c := newTestClient(&Config{}, gClient)
 
 	to := uint32(24)
-	l, err := c.Lock("test", &to, &to)
+	l, err := c.Lock("test", 24, 24)
 
 	assert := assert.New(t)
 	assert.ErrorIs(err, ErrLockWaitTimeout)
@@ -137,7 +137,7 @@ func TestLock_WaitTimeout(t *testing.T) {
 	}, gClient)
 
 	to := uint32(43)
-	l, err := c.Lock("test", &to, nil)
+	l, err := c.Lock("test", 0, 43)
 
 	assert := assert.New(t)
 	assert.Nil(err)
@@ -160,7 +160,7 @@ func TestLock_WaitTimeoutError(t *testing.T) {
 	}, gClient)
 
 	to := uint32(43)
-	l, err := c.Lock("test", &to, nil)
+	l, err := c.Lock("test", 0, to)
 
 	assert := assert.New(t)
 	assert.ErrorIs(err, ErrLockWaitTimeout)
@@ -178,7 +178,7 @@ func TestTryLock_HappyPath(t *testing.T) {
 		NoAutoRefresh: true,
 	}, gClient)
 
-	l, err := c.TryLock("test", nil)
+	l, err := c.TryLock("test", 0)
 
 	assert := assert.New(t)
 	assert.Nil(err)
@@ -201,7 +201,7 @@ func TestTryLock_LockTimeout(t *testing.T) {
 	}, gClient)
 
 	to := uint32(24)
-	l, err := c.TryLock("test", &to)
+	l, err := c.TryLock("test", to)
 
 	assert := assert.New(t)
 	assert.True(isEmptySyncMap(&c.refreshMap))
@@ -223,7 +223,7 @@ func TestTryLock_LockTimeoutAutoRefresh(t *testing.T) {
 	c := newTestClient(&Config{}, gClient)
 
 	to := uint32(24)
-	l, err := c.TryLock("test", &to)
+	l, err := c.TryLock("test", to)
 
 	assert := assert.New(t)
 	assert.Nil(err)
@@ -250,7 +250,7 @@ func TestTryLock_LockTimeoutAutoRefreshNotLocked(t *testing.T) {
 	c := newTestClient(&Config{}, gClient)
 
 	to := uint32(24)
-	l, err := c.TryLock("test", &to)
+	l, err := c.TryLock("test", to)
 
 	assert := assert.New(t)
 	assert.NotNil(err)
@@ -274,7 +274,7 @@ func TestTryLock_Error(t *testing.T) {
 	c := newTestClient(&Config{}, gClient)
 
 	to := uint32(24)
-	l, err := c.TryLock("test", &to)
+	l, err := c.TryLock("test", to)
 
 	assert := assert.New(t)
 	assert.NotNil(err)
@@ -309,7 +309,7 @@ func TestUnlock_Error(t *testing.T) {
 func TestNewClient_BareOptions(t *testing.T) {
 
 	assert := assert.New(t)
-	conf := &Config{
+	conf := Config{
 		Address: "127.0.0.1:8080",
 	}
 	ctx := context.Background()
@@ -322,7 +322,7 @@ func TestNewClient_BareOptions(t *testing.T) {
 func TestNewClient_FullOptions(t *testing.T) {
 
 	assert := assert.New(t)
-	conf := &Config{
+	conf := Config{
 		Address:       "127.0.0.1:8080",
 		NoAutoRefresh: true,
 		UseTls:        true,
@@ -343,7 +343,7 @@ func TestNewClient_FullOptions(t *testing.T) {
 func TestNewClient_BadCertOption(t *testing.T) {
 
 	assert := assert.New(t)
-	conf := &Config{
+	conf := Config{
 		Address: "127.0.0.1:8080",
 		CAFile:  "../testcerts/ca_cert.pem",
 		TlsCert: "../testcerts/client_cert.pem",
