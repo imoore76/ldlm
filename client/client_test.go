@@ -95,7 +95,7 @@ func TestLock_LockTimeoutAutoRefresh(t *testing.T) {
 	assert.True(l.Locked)
 	assert.Equal("test", l.Name)
 
-	time.Sleep(time.Duration(6) * time.Second)
+	time.Sleep(time.Duration(5500) * time.Millisecond)
 	l.Unlock()
 
 	assert.Equal([]*pb.LockRequest{{Name: "test", LockTimeoutSeconds: &to}}, gClient.lockRequests)
