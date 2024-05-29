@@ -57,6 +57,12 @@ var flagSetMap = map[reflect.Type]func(fs *flag.FlagSet, name string, short stri
 		setFromString(reflect.ValueOf(d), def)
 		fs.Uint32P(name, short, *d, desc)
 	},
+	// int32
+	reflect.TypeOf(new(int32)): func(fs *flag.FlagSet, name string, short string, def string, desc string) {
+		d := new(int32)
+		setFromString(reflect.ValueOf(d), def)
+		fs.Int32P(name, short, *d, desc)
+	},
 	// bool
 	reflect.TypeOf(new(bool)): func(fs *flag.FlagSet, name string, short string, def string, desc string) {
 		d := new(bool)
@@ -97,6 +103,15 @@ var setFromStringMap = map[reflect.Type]func(reflect.Value, string) error{
 			return fmt.Errorf("unable to parse uint32 value: %s: %s", s, err)
 		}
 		v.Elem().SetUint(def)
+		return nil
+	},
+	// int32
+	reflect.TypeOf(new(int32)): func(v reflect.Value, s string) error {
+		def, err := strconv.ParseInt(s, 10, 32)
+		if err != nil {
+			return fmt.Errorf("unable to parse int32 value: %s: %s", s, err)
+		}
+		v.Elem().SetInt(def)
 		return nil
 	},
 	// bool

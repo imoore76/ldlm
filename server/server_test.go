@@ -259,7 +259,7 @@ func TestLockWaitTimeout(t *testing.T) {
 
 	// Client2 calls WaitLock with a timeout
 	client2 := newTestClient(s)
-	var to uint32 = 1
+	var to int32 = 1
 	res2, err := s.Lock(client2.ctx, "testlock", nil, &to)
 
 	// The result is that a timeout error is returned
@@ -326,7 +326,7 @@ func TestLockTimerTimeout(t *testing.T) {
 	client1 := newTestClient(s)
 	client2 := newTestClient(s)
 
-	timeout := uint32(3)
+	timeout := int32(3)
 	res, err := s.TryLock(client1.ctx, "testlock", &timeout)
 	assert.Nil(err)
 	assert.True(res.Locked)
@@ -378,7 +378,7 @@ func TestLockTimerRefresh(t *testing.T) {
 	client1 := newTestClient(s)
 	client2 := newTestClient(s)
 
-	timeout := uint32(1)
+	timeout := int32(1)
 	res, err := s.TryLock(client1.ctx, "testlock", &timeout)
 	assert.Nil(err)
 	assert.True(res.Locked, "Client1 should have obtained lock")

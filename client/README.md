@@ -69,8 +69,8 @@ To `Unlock()` or refresh a lock, you must use the lock key that was issued from 
 | Name | Type | Description |
 | :--- |:--- | :--- |
 | `name` | `string` | Name of the lock to acquire |
-| `lockTimeoutSeconds` | `uint32` | The lock timeout. Use `0` for no timeout.
-| `waitTimeoutSeconds` | `uint32` | Maximum amount of time to wait to acquire a lock. Use `0` to wait indefinitely. |
+| `lockTimeoutSeconds` | `int32` | The lock timeout. Use `0` for no timeout.
+| `waitTimeoutSeconds` | `int32` | Maximum amount of time to wait to acquire a lock. Use `0` to wait indefinitely. |
 
 It returns a `*Lock` and an `error`.
 
@@ -108,7 +108,7 @@ defer lock.Unlock()
 | Name | Type | Description |
 | :--- | :--- | :--- |
 | `name` | `string` | Name of the lock to acquire |
-| `lockTimeoutSeconds` | `uint32` | The lock timeout. Use `0` for no timeout.
+| `lockTimeoutSeconds` | `int32` | The lock timeout. Use `0` for no timeout.
 
 It returns a `*Lock` and an `error`.
 
@@ -159,7 +159,7 @@ It takes the following arguments
 | :--- | :--- | :--- |
 | `name` | `string` | Name of the lock to acquire |
 | `key` | `string` | The key for the lock |
-| `lockTimeoutSeconds` | `uint32` | The new lock expiration timeout (or the same timeout if you'd like) |
+| `lockTimeoutSeconds` | `int32` | The new lock expiration timeout (or the same timeout if you'd like) |
 
 It returns a `*Lock` and an `error`.
 

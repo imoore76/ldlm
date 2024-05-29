@@ -40,6 +40,7 @@ var (
 	ErrLockWaitTimeout              = errors.New("timeout waiting to acquire lock")
 	ErrLockDoesNotExistOrInvalidKey = errors.New("lock does not exist or invalid key")
 	ErrSessionDoesNotExist          = errors.New("session does not exist")
+	ErrInvalidLockTimeout           = errors.New("lock timeout must be greater than 0")
 )
 
 // Lock server
@@ -130,7 +131,7 @@ func New(c *LockServerConfig) (*LockServer, func(), error) {
 }
 
 // Lock blocks until the lock is obtained or is canceled / timed out by context
-func (l *LockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *uint32, waitTimeoutSeconds *uint32) (*Lock, error) {
+func (l *LockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *int32, waitTimeoutSeconds *int32) (*Lock, error) {
 	sessionId, ok := l.SessionId(ctx)
 	if !ok {
 		return nil, ErrSessionDoesNotExist
@@ -141,7 +142,7 @@ func (l *LockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *
 
 	lockCtx := ctx
 	// Set up context with timeout if wait timeout is set
-	if waitTimeoutSeconds != nil {
+	if waitTimeoutSeconds != nil && *waitTimeoutSeconds > 0 {
 		newCtx, cancel := context.WithTimeoutCause(
 			ctx,
 			time.Duration(*waitTimeoutSeconds)*time.Second,
@@ -254,7 +255,7 @@ func (l *LockServer) Unlock(ctx context.Context, name string, key string) (bool,
 }
 
 // TryLock attempts to acquire the lock and immediately fails or succeeds
-func (l *LockServer) TryLock(ctx context.Context, name string, lockTimeoutSeconds *uint32) (*Lock, error) {
+func (l *LockServer) TryLock(ctx context.Context, name string, lockTimeoutSeconds *int32) (*Lock, error) {
 	sessionId, ok := l.SessionId(ctx)
 	if !ok {
 		return nil, ErrSessionDoesNotExist
@@ -308,7 +309,11 @@ func (l *LockServer) TryLock(ctx context.Context, name string, lockTimeoutSecond
 }
 
 // RefreshLock refreshes a lock timer
-func (l *LockServer) RefreshLock(ctx context.Context, name string, key string, lockTimeoutSeconds uint32) (*Lock, error) {
+func (l *LockServer) RefreshLock(ctx context.Context, name string, key string, lockTimeoutSeconds int32) (*Lock, error) {
+
+	if lockTimeoutSeconds <= 0 {
+		return nil, ErrInvalidLockTimeout
+	}
 
 	ctxLog := log.FromContextOrDefault(ctx)
 	ctxLog.Info(

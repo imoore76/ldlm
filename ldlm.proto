@@ -32,13 +32,13 @@ message Error {
 
 message LockRequest {
   string name = 1;
-  optional uint32 wait_timeout_seconds = 3;
-  optional uint32 lock_timeout_seconds = 100;
+  optional int32 wait_timeout_seconds = 3;
+  optional int32 lock_timeout_seconds = 100;
 }
 
 message TryLockRequest {
   string name = 1;
-  optional uint32 lock_timeout_seconds = 100;
+  optional int32 lock_timeout_seconds = 100;
 }
 
 message LockResponse {
@@ -62,7 +62,7 @@ message UnlockResponse {
 message RefreshLockRequest {
   string name = 1;
   string key = 2;
-  uint32 lock_timeout_seconds = 100;
+  int32 lock_timeout_seconds = 100;
 }
 
 service LDLM {

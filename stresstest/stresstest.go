@@ -47,13 +47,13 @@ var (
 	lockNamesLock = sync.RWMutex{}
 	ctx           = context.Background()
 	checkerLock   = sync.RWMutex{}
-	NoTimeout     = uint32(0)
+	NoTimeout     = int32(0)
 )
 
 type Config struct {
-	SleepForMaxSeconds uint32        `desc:"Sleep for this many seconds (max) between operations. Actual duration will be random between 0 and this value." default:"10" short:"s"`
-	NumClients         uint32        `desc:"Number of clients to run" default:"80" short:"c"`
-	NumLocks           uint32        `desc:"Number of locks to create" default:"24" short:"l"`
+	SleepForMaxSeconds int32         `desc:"Sleep for this many seconds (max) between operations. Actual duration will be random between 0 and this value." default:"10" short:"s"`
+	NumClients         int32         `desc:"Number of clients to run" default:"80" short:"c"`
+	NumLocks           int32         `desc:"Number of locks to create" default:"24" short:"l"`
 	Address            string        `desc:"Address (host:port) at which the ldlm server is listening" default:"localhost:3144" short:"a"`
 	RandomizeNames     bool          `desc:"Randomize lock names" default:"true" short:"r"`
 	RandomizeInterval  time.Duration `desc:"Interval at which to randomize lock names" default:"7s" short:"i"`
@@ -70,7 +70,7 @@ type apiClient struct {
 	ClientId    string
 	Name        string
 	LastLock    time.Time
-	SleepForMax uint32
+	SleepForMax int32
 }
 
 func newApiClient(conf *Config) *apiClient {
@@ -132,11 +132,11 @@ func randomWaitLock(c *apiClient) {
 		Name: lockName}
 
 	if rand.Int32N(100) > 50 {
-		tmr := uint32(rand.Uint32N(c.SleepForMax))
+		tmr := int32(rand.Int32N(c.SleepForMax))
 		req.WaitTimeoutSeconds = &tmr
 	}
 	if rand.Int32N(100) > 50 {
-		to := uint32(rand.Uint32N(c.SleepForMax))
+		to := int32(rand.Int32N(c.SleepForMax))
 		req.LockTimeoutSeconds = &to
 	}
 	r, err := c.pbc.Lock(ctx, req)
@@ -150,7 +150,7 @@ func randomWaitLock(c *apiClient) {
 	}
 	c.LastLock = time.Now()
 	c.Name = lockName
-	sleepFor := rand.Uint32N(c.SleepForMax * 1000)
+	sleepFor := rand.Int32N(c.SleepForMax * 1000)
 	log.Info(fmt.Sprintf("Client %s locked %s. Waiting %d milliseconds.", c.ClientId, lockName, sleepFor))
 	time.Sleep(time.Duration(sleepFor) * time.Millisecond)
 
@@ -177,7 +177,7 @@ func randomTryLock(c *apiClient) {
 		Name: lockName,
 	}
 	if rand.Int32N(100) > 50 {
-		to := uint32(rand.Uint32N(c.SleepForMax))
+		to := int32(rand.Int32N(c.SleepForMax))
 		req.LockTimeoutSeconds = &to
 	}
 
@@ -192,7 +192,7 @@ func randomTryLock(c *apiClient) {
 	}
 	c.LastLock = time.Now()
 	c.Name = lockName
-	sleepFor := rand.Uint32N(c.SleepForMax * 1000)
+	sleepFor := rand.Int32N(c.SleepForMax * 1000)
 	log.Info(fmt.Sprintf("Client %s locked %s. Waiting %d milliseconds.", c.ClientId, lockName, sleepFor))
 	time.Sleep(time.Duration(sleepFor) * time.Millisecond)
 

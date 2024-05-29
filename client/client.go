@@ -51,7 +51,7 @@ var (
 
 var (
 	// Minimum amount of time to wait before refreshing a lock
-	minRefreshSeconds = uint32(10)
+	minRefreshSeconds = int32(10)
 	// The delay between failed retries
 	retryDelaySeconds = 3
 )
@@ -178,16 +178,16 @@ func New(ctx context.Context, conf Config, opts ...grpc.DialOption) (*client, er
 // Returns:
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock acquisition fails.
-func (c *client) Lock(name string, lockTimeoutSeconds uint32, waitTimeoutSeconds uint32) (*Lock, error) {
+func (c *client) Lock(name string, lockTimeoutSeconds int32, waitTimeoutSeconds int32) (*Lock, error) {
 	req := &pb.LockRequest{
 		Name: name,
 	}
 	if waitTimeoutSeconds > 0 {
-		wts := uint32(waitTimeoutSeconds)
+		wts := int32(waitTimeoutSeconds)
 		req.WaitTimeoutSeconds = &wts
 	}
 	if lockTimeoutSeconds > 0 {
-		lts := uint32(lockTimeoutSeconds)
+		lts := int32(lockTimeoutSeconds)
 		req.LockTimeoutSeconds = &lts
 	}
 	r, err := rpcWithRetry(
@@ -216,12 +216,12 @@ func (c *client) Lock(name string, lockTimeoutSeconds uint32, waitTimeoutSeconds
 // Returns:
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock acquisition fails.
-func (c *client) TryLock(name string, lockTimeoutSeconds uint32) (*Lock, error) {
+func (c *client) TryLock(name string, lockTimeoutSeconds int32) (*Lock, error) {
 	req := &pb.TryLockRequest{
 		Name: name,
 	}
 	if lockTimeoutSeconds > 0 {
-		lts := uint32(lockTimeoutSeconds)
+		lts := int32(lockTimeoutSeconds)
 		req.LockTimeoutSeconds = &lts
 	}
 	r, err := rpcWithRetry(c.maxRetries, func() (*pb.LockResponse, error) {
@@ -274,7 +274,7 @@ func (c *client) Unlock(name string, key string) (bool, error) {
 // Returns:
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock refresh fails.
-func (c *client) RefreshLock(name string, key string, lockTimeoutSeconds uint32) (*Lock, error) {
+func (c *client) RefreshLock(name string, key string, lockTimeoutSeconds int32) (*Lock, error) {
 	r, err := rpcWithRetry(
 		c.maxRetries,
 		func() (*pb.LockResponse, error) {
@@ -308,8 +308,8 @@ func (c *client) Close() error {
 //
 // Parameters:
 // - r: A pointer to a LockResponse struct containing the lock information.
-// - lockTimeoutSeconds: A uint32 representing the lock timeout in seconds.
-func (c *client) maybeCreateRefresher(r *pb.LockResponse, lockTimeoutSeconds uint32) {
+// - lockTimeoutSeconds: A int32 representing the lock timeout in seconds.
+func (c *client) maybeCreateRefresher(r *pb.LockResponse, lockTimeoutSeconds int32) {
 	if !r.Locked || c.noAutoRefresh || lockTimeoutSeconds == 0 {
 		return
 	}
@@ -345,7 +345,7 @@ type refresher struct {
 	client             *client
 	name               string
 	key                string
-	lockTimeoutSeconds uint32
+	lockTimeoutSeconds int32
 	stop               chan struct{}
 }
 
@@ -359,7 +359,7 @@ type refresher struct {
 //
 // Return:
 // - A pointer to a refresher struct.
-func NewRefresher(client *client, name string, key string, lockTimeoutSeconds uint32) *refresher {
+func NewRefresher(client *client, name string, key string, lockTimeoutSeconds int32) *refresher {
 	r := &refresher{
 		client:             client,
 		name:               name,
@@ -376,7 +376,7 @@ func NewRefresher(client *client, name string, key string, lockTimeoutSeconds ui
 // It does not take any parameters.
 // It does not return anything.
 func (r *refresher) Start() {
-	var interval uint32
+	var interval int32
 	if r.lockTimeoutSeconds <= 30 {
 		interval = minRefreshSeconds
 	} else {

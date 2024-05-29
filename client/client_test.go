@@ -64,7 +64,7 @@ func TestLock_LockTimeout(t *testing.T) {
 		NoAutoRefresh: true,
 	}, gClient)
 
-	to := uint32(24)
+	to := int32(24)
 	l, err := c.Lock("test", to, 0)
 
 	assert := assert.New(t)
@@ -87,7 +87,7 @@ func TestLock_LockTimeoutAutoRefresh(t *testing.T) {
 	gClient := newTestGrpcClient(nil, nil, nil, nil)
 	c := newTestClient(&Config{}, gClient)
 
-	to := uint32(5)
+	to := int32(5)
 	l, err := c.Lock("test", to, 0)
 
 	assert := assert.New(t)
@@ -114,7 +114,7 @@ func TestLock_LockTimeoutAutoRefreshNotLocked(t *testing.T) {
 	}, nil, nil, nil)
 	c := newTestClient(&Config{}, gClient)
 
-	to := uint32(24)
+	to := int32(24)
 	l, err := c.Lock("test", 24, 24)
 
 	assert := assert.New(t)
@@ -136,7 +136,7 @@ func TestLock_WaitTimeout(t *testing.T) {
 		NoAutoRefresh: true,
 	}, gClient)
 
-	to := uint32(43)
+	to := int32(43)
 	l, err := c.Lock("test", 0, 43)
 
 	assert := assert.New(t)
@@ -159,7 +159,7 @@ func TestLock_WaitTimeoutError(t *testing.T) {
 		NoAutoRefresh: true,
 	}, gClient)
 
-	to := uint32(43)
+	to := int32(43)
 	l, err := c.Lock("test", 0, to)
 
 	assert := assert.New(t)
@@ -200,7 +200,7 @@ func TestTryLock_LockTimeout(t *testing.T) {
 		NoAutoRefresh: true,
 	}, gClient)
 
-	to := uint32(24)
+	to := int32(24)
 	l, err := c.TryLock("test", to)
 
 	assert := assert.New(t)
@@ -222,7 +222,7 @@ func TestTryLock_LockTimeoutAutoRefresh(t *testing.T) {
 	gClient := newTestGrpcClient(nil, nil, nil, nil)
 	c := newTestClient(&Config{}, gClient)
 
-	to := uint32(24)
+	to := int32(24)
 	l, err := c.TryLock("test", to)
 
 	assert := assert.New(t)
@@ -249,7 +249,7 @@ func TestTryLock_LockTimeoutAutoRefreshNotLocked(t *testing.T) {
 	}, nil, nil)
 	c := newTestClient(&Config{}, gClient)
 
-	to := uint32(24)
+	to := int32(24)
 	l, err := c.TryLock("test", to)
 
 	assert := assert.New(t)
@@ -273,7 +273,7 @@ func TestTryLock_Error(t *testing.T) {
 	}, nil, nil)
 	c := newTestClient(&Config{}, gClient)
 
-	to := uint32(24)
+	to := int32(24)
 	l, err := c.TryLock("test", to)
 
 	assert := assert.New(t)
@@ -496,7 +496,7 @@ func patchRetryDelaySeconds(new int) func() {
 	}
 }
 
-func patchMinRefreshSeconds(new uint32) func() {
+func patchMinRefreshSeconds(new int32) func() {
 	old := minRefreshSeconds
 	minRefreshSeconds = new
 	return func() {

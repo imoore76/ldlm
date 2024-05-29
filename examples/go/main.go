@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func lockRefresher(c pb.LDLMClient, ctx context.Context, name string, key string, timeout_seconds uint32) func() {
+func lockRefresher(c pb.LDLMClient, ctx context.Context, name string, key string, timeout_seconds int32) func() {
 
 	interval := max(timeout_seconds-30, 10)
 	stopCh := make(chan struct{}, 1)
@@ -71,7 +71,7 @@ func main() {
 	ctx := context.Background()
 	client := pb.NewLDLMClient(conn)
 
-	var lockTimeout = uint32(59)
+	var lockTimeout = int32(59)
 	r, err := client.Lock(ctx, &pb.LockRequest{
 		Name:               "work-item1",
 		LockTimeoutSeconds: &lockTimeout,

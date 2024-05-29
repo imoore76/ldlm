@@ -143,8 +143,8 @@ func TestLock(t *testing.T) {
 	defer closer()
 
 	client, _ := mkClient()
-	wto := uint32(33)
-	lto := uint32(44)
+	wto := int32(33)
+	lto := int32(44)
 	res, err := client.Lock(context.Background(), &pb.LockRequest{
 		Name:               "testlock",
 		WaitTimeoutSeconds: &wto,
@@ -156,8 +156,8 @@ func TestLock(t *testing.T) {
 
 	assert.Equal(&struct {
 		name               string
-		lockTimeoutSeconds *uint32
-		waitTimeoutSeconds *uint32
+		lockTimeoutSeconds *int32
+		waitTimeoutSeconds *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: &lto,
@@ -186,8 +186,8 @@ func TestLock_NoTimers(t *testing.T) {
 
 	assert.Equal(&struct {
 		name               string
-		lockTimeoutSeconds *uint32
-		waitTimeoutSeconds *uint32
+		lockTimeoutSeconds *int32
+		waitTimeoutSeconds *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: nil,
@@ -223,8 +223,8 @@ func TestLock_Error(t *testing.T) {
 
 	assert.Equal(&struct {
 		name               string
-		lockTimeoutSeconds *uint32
-		waitTimeoutSeconds *uint32
+		lockTimeoutSeconds *int32
+		waitTimeoutSeconds *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: nil,
@@ -244,7 +244,7 @@ func TestTryLock(t *testing.T) {
 	defer closer()
 
 	client, _ := mkClient()
-	lto := uint32(44)
+	lto := int32(44)
 	res, err := client.TryLock(context.Background(), &pb.TryLockRequest{
 		Name:               "testlock",
 		LockTimeoutSeconds: &lto,
@@ -255,7 +255,7 @@ func TestTryLock(t *testing.T) {
 
 	assert.Equal(&struct {
 		name               string
-		lockTimeoutSeconds *uint32
+		lockTimeoutSeconds *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: &lto,
@@ -283,7 +283,7 @@ func TestTryLock_NoTimers(t *testing.T) {
 
 	assert.Equal(&struct {
 		name               string
-		lockTimeoutSeconds *uint32
+		lockTimeoutSeconds *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: nil,
@@ -318,7 +318,7 @@ func TestTryLock_Error(t *testing.T) {
 
 	assert.Equal(&struct {
 		name               string
-		lockTimeoutSeconds *uint32
+		lockTimeoutSeconds *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: nil,
@@ -349,7 +349,7 @@ func TestRefreshLock(t *testing.T) {
 	assert.Equal(&struct {
 		name               string
 		key                string
-		lockTimeoutSeconds uint32
+		lockTimeoutSeconds int32
 	}{
 		name:               "testlock",
 		key:                "key",
@@ -388,7 +388,7 @@ func TestRefreshLock_Error(t *testing.T) {
 	assert.Equal(&struct {
 		name               string
 		key                string
-		lockTimeoutSeconds uint32
+		lockTimeoutSeconds int32
 	}{
 		name:               "testlock",
 		key:                "foo",
@@ -622,12 +622,12 @@ type testLockServer struct {
 	refreshLockResponse *lockResponse
 	lockCall            *struct {
 		name               string
-		lockTimeoutSeconds *uint32
-		waitTimeoutSeconds *uint32
+		lockTimeoutSeconds *int32
+		waitTimeoutSeconds *int32
 	}
 	tryLockCall *struct {
 		name               string
-		lockTimeoutSeconds *uint32
+		lockTimeoutSeconds *int32
 	}
 	unlockCall *struct {
 		name string
@@ -636,7 +636,7 @@ type testLockServer struct {
 	refreshLockCall *struct {
 		name               string
 		key                string
-		lockTimeoutSeconds uint32
+		lockTimeoutSeconds int32
 	}
 	createSessionCall *struct {
 		metadata map[string]any
@@ -647,11 +647,11 @@ type testLockServer struct {
 	}
 }
 
-func (t *testLockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *uint32, waitTimeoutSeconds *uint32) (*server.Lock, error) {
+func (t *testLockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *int32, waitTimeoutSeconds *int32) (*server.Lock, error) {
 	t.lockCall = &struct {
 		name               string
-		lockTimeoutSeconds *uint32
-		waitTimeoutSeconds *uint32
+		lockTimeoutSeconds *int32
+		waitTimeoutSeconds *int32
 	}{
 		name:               name,
 		lockTimeoutSeconds: lockTimeoutSeconds,
@@ -667,10 +667,10 @@ func (t *testLockServer) Lock(ctx context.Context, name string, lockTimeoutSecon
 	}, nil
 }
 
-func (t *testLockServer) TryLock(ctx context.Context, name string, lockTimeoutSeconds *uint32) (*server.Lock, error) {
+func (t *testLockServer) TryLock(ctx context.Context, name string, lockTimeoutSeconds *int32) (*server.Lock, error) {
 	t.tryLockCall = &struct {
 		name               string
-		lockTimeoutSeconds *uint32
+		lockTimeoutSeconds *int32
 	}{
 		name:               name,
 		lockTimeoutSeconds: lockTimeoutSeconds,
@@ -699,11 +699,11 @@ func (t *testLockServer) Unlock(ctx context.Context, name string, key string) (b
 	return true, nil
 }
 
-func (t *testLockServer) RefreshLock(ctx context.Context, name string, key string, lockTimeoutSeconds uint32) (*server.Lock, error) {
+func (t *testLockServer) RefreshLock(ctx context.Context, name string, key string, lockTimeoutSeconds int32) (*server.Lock, error) {
 	t.refreshLockCall = &struct {
 		name               string
 		key                string
-		lockTimeoutSeconds uint32
+		lockTimeoutSeconds int32
 	}{
 		name:               name,
 		key:                key,
