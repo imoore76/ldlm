@@ -208,7 +208,7 @@ func (l *LockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *
 		l.sessMgr.AddLock(name, key, sessionId)
 
 		// Add lock timer if lock timeout is set
-		if lockTimeoutSeconds != nil {
+		if lockTimeoutSeconds != nil && *lockTimeoutSeconds > 0 {
 			d := time.Duration(*lockTimeoutSeconds) * time.Second
 			l.lockTimerMgr.Add(name+key, l.onTimeoutFunc(ctx, name, key, sessionId), d)
 		}
