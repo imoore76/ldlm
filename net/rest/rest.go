@@ -294,26 +294,26 @@ func (h *restHandler) onTimeoutFunc(sessionId string) func() {
 	}
 }
 
-// Run starts a REST server that handles LDML gRPC requests.
+// Run starts a REST server that handles LDLM gRPC requests.
 //
 // Parameters:
-// - server: The gRPC server that handles LDML requests.
+// - server: The gRPC server that handles LDLM requests.
 // - conf: The configuration for the REST server.
-// - sconf: The security configuration for the REST server.
+// - sConf: The security configuration for the REST server.
 //
 // Returns:
 // - A function that can be used to stop the server.
 // - An error if there was a problem starting the server.
-func Run(server grpcLockServer, conf *RestConfig, sconf *sec.SecurityConfig) (func(), error) {
+func Run(server grpcLockServer, conf *RestConfig, sConf *sec.SecurityConfig) (func(), error) {
 
-	gwServer, closer, err := NewRestServer(server, conf, sconf)
+	gwServer, closer, err := NewRestServer(server, conf, sConf)
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
-		if sconf.TlsCert != "" && sconf.TlsKey != "" {
-			if err := gwServer.ListenAndServeTLS(sconf.TlsCert, sconf.TlsKey); err != nil && err != http.ErrServerClosed {
+		if sConf.TlsCert != "" && sConf.TlsKey != "" {
+			if err := gwServer.ListenAndServeTLS(sConf.TlsCert, sConf.TlsKey); err != nil && err != http.ErrServerClosed {
 				panic(err)
 			}
 		} else if err := gwServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -324,27 +324,38 @@ func Run(server grpcLockServer, conf *RestConfig, sconf *sec.SecurityConfig) (fu
 	return closer, nil
 }
 
-func NewRestServer(server grpcLockServer, conf *RestConfig, sconf *sec.SecurityConfig) (*http.Server, func(), error) {
+// NewRestServer creates a new REST server that handles LDLM gRPC requests.
+//
+// Parameters:
+// - server: The gRPC server that handles LDLM requests.
+// - conf: The configuration for the REST server.
+// - sConf: The security configuration for the REST server.
+//
+// Returns:
+// - *http.Server: The newly created REST server.
+// - func(): A function to close the server.
+// - error: An error if there was a problem creating the server.
+func NewRestServer(server grpcLockServer, conf *RestConfig, sConf *sec.SecurityConfig) (*http.Server, func(), error) {
 
 	// Register Handler
-	gwmux := runtime.NewServeMux()
-	if err := pb.RegisterLDLMHandlerServer(context.Background(), gwmux, server); err != nil {
+	gwMux := runtime.NewServeMux()
+	if err := pb.RegisterLDLMHandlerServer(context.Background(), gwMux, server); err != nil {
 		return nil, nil, err
 	}
 
 	tm, tmCloser := timer.NewManager()
 
 	handler := &restHandler{
-		mux:               gwmux,
+		mux:               gwMux,
 		sessions:          make(map[string]*session),
 		sessionsMtx:       sync.RWMutex{},
 		grpcSrv:           server,
 		timerMgr:          tm,
 		sessionExpiration: conf.RestSessionTimeout,
-		password:          sconf.Password,
+		password:          sConf.Password,
 	}
 
-	tls, err := sec.GetTLSConfig(sconf)
+	tls, err := sec.GetTLSConfig(sConf)
 	if err != nil {
 		return nil, nil, err
 	}

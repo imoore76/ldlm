@@ -41,6 +41,7 @@ var (
 	ErrLockDoesNotExistOrInvalidKey = errors.New("lock does not exist or invalid key")
 	ErrSessionDoesNotExist          = errors.New("session does not exist")
 	ErrInvalidLockTimeout           = errors.New("lock timeout must be greater than 0")
+	ErrInvalidWaitTimeout           = errors.New("wait timeout must be greater than 0")
 )
 
 // Lock server
@@ -137,6 +138,13 @@ func (l *LockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *
 		return nil, ErrSessionDoesNotExist
 	}
 
+	if lockTimeoutSeconds != nil && *lockTimeoutSeconds < 0 {
+		return nil, ErrInvalidLockTimeout
+	}
+	if waitTimeoutSeconds != nil && *waitTimeoutSeconds < 0 {
+		return nil, ErrInvalidWaitTimeout
+	}
+
 	key := sessionId
 	ctxLog := log.FromContextOrDefault(ctx)
 
@@ -200,7 +208,7 @@ func (l *LockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *
 		l.sessMgr.AddLock(name, key, sessionId)
 
 		// Add lock timer if lock timeout is set
-		if lockTimeoutSeconds != nil && *lockTimeoutSeconds > 0 {
+		if lockTimeoutSeconds != nil {
 			d := time.Duration(*lockTimeoutSeconds) * time.Second
 			l.lockTimerMgr.Add(name+key, l.onTimeoutFunc(ctx, name, key, sessionId), d)
 		}
@@ -259,6 +267,10 @@ func (l *LockServer) TryLock(ctx context.Context, name string, lockTimeoutSecond
 	sessionId, ok := l.SessionId(ctx)
 	if !ok {
 		return nil, ErrSessionDoesNotExist
+	}
+
+	if lockTimeoutSeconds != nil && *lockTimeoutSeconds < 0 {
+		return nil, ErrInvalidLockTimeout
 	}
 
 	key := sessionId
