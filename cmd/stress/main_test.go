@@ -42,7 +42,7 @@ func TestHelp(t *testing.T) {
 
 func TestBadAddress(t *testing.T) {
 	if os.Getenv("TEST_PASSTHROUGH") == "1" {
-		os.Args = []string{"ldlm", "--num_clients", "1", "-a", "8"}
+		os.Args = []string{"ldlm", "--num_clients", "1", "-a", "-"}
 		main()
 		return
 	}
@@ -58,7 +58,7 @@ func TestBadAddress(t *testing.T) {
 	assert.True(ok, "Error should be of type *exec.ExitError")
 	assert.False(e.Success(), "Command should have exited with bad error code")
 	assert.True(
-		strings.Contains(string(e.Stderr), "panic: rpc error: code = Unavailable desc = connection error: desc"),
+		strings.Contains(string(e.Stderr), "rpc error: code = Unavailable desc = name resolver error"),
 		string(e.Stderr),
 	)
 
