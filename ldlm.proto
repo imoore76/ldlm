@@ -24,7 +24,7 @@ enum ErrorCode {
   NotLocked = 4;
   LockDoesNotExistOrInvalidKey = 5;
   LockSizeMismatch = 6;
-	InvalidLockSize = 7;
+  InvalidLockSize = 7;
 }
 
 message Error {
