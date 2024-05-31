@@ -21,6 +21,7 @@ package clientlock
 type Lock struct {
 	name string
 	key  string
+	size int32
 }
 
 // Name returns the name of the lock
@@ -33,7 +34,12 @@ func (c Lock) Key() string {
 	return c.key
 }
 
+// Size returns the size of the lock
+func (c Lock) Size() int32 {
+	return c.size
+}
+
 // New creates a new Lock with the provided name and key
-func New(name string, key string) Lock {
-	return Lock{name: name, key: key}
+func New(name string, key string, size int32) Lock {
+	return Lock{name: name, key: key, size: size}
 }

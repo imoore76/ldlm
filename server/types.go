@@ -42,16 +42,16 @@ type LockServerConfig struct {
 }
 
 type lockManager interface {
-	Lock(name string, key string, ctx context.Context) (chan interface{}, error)
-	TryLock(name string, key string) (bool, error)
+	Lock(name string, key string, size int32, ctx context.Context) (chan interface{}, error)
+	TryLock(name string, key string, size int32) (bool, error)
 	Unlock(name string, key string) (bool, error)
 }
 
 type sessionManager interface {
 	CreateSession(string)
 	DestroySession(string) []cl.Lock
-	AddLock(name string, key string, sessionId string)
-	RemoveLock(name string, sessionId string)
+	AddLock(name string, key string, size int32, sessionId string)
+	RemoveLock(name string, key string, sessionId string)
 	Load() (map[string][]cl.Lock, error)
 	Locks() map[string][]cl.Lock
 }

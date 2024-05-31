@@ -23,6 +23,8 @@ enum ErrorCode {
   LockWaitTimeout = 3;
   NotLocked = 4;
   LockDoesNotExistOrInvalidKey = 5;
+  LockSizeMismatch = 6;
+	InvalidLockSize = 7;
 }
 
 message Error {
@@ -34,11 +36,13 @@ message LockRequest {
   string name = 1;
   optional int32 wait_timeout_seconds = 3;
   optional int32 lock_timeout_seconds = 100;
+  optional int32 size = 4;
 }
 
 message TryLockRequest {
   string name = 1;
   optional int32 lock_timeout_seconds = 100;
+  optional int32 size = 4;
 }
 
 message LockResponse {
@@ -67,7 +71,7 @@ message RefreshLockRequest {
 
 service LDLM {
   rpc Lock(LockRequest) returns (LockResponse) { }
-  rpc Unlock(UnlockRequest) returns (UnlockResponse) { }
   rpc TryLock(TryLockRequest) returns (LockResponse) { }
+  rpc Unlock(UnlockRequest) returns (UnlockResponse) { }
   rpc RefreshLock(RefreshLockRequest) returns (LockResponse) {}
 }

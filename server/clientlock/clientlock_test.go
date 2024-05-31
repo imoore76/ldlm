@@ -24,8 +24,9 @@ import (
 
 func TestClientLock(t *testing.T) {
 	assert := assert.New(t)
-	var lk cl.Lock = cl.New("foo", "bar")
+	var lk cl.Lock = cl.New("foo", "bar", 22)
 
-	assert.Equal(lk.Name(), "foo")
-	assert.Equal(lk.Key(), "bar")
+	assert.Equal("foo", lk.Name())
+	assert.Equal("bar", lk.Key())
+	assert.Equal(int32(22), lk.Size())
 }

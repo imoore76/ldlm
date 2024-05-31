@@ -60,7 +60,7 @@ func lockRefresher(c pb.LDLMClient, ctx context.Context, name string, key string
 }
 
 func main() {
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		"localhost:3144",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)

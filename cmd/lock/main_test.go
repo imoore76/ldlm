@@ -96,7 +96,7 @@ func TestUnlock(t *testing.T) {
 	assert := assert.New(t)
 
 	ls := newTestLockServer(true, []cl.Lock{
-		cl.New("mylock2", "bar"),
+		cl.New("mylock2", "bar", 1),
 	})
 
 	cancel, err := ipc.Run(ls, conf)
@@ -121,7 +121,7 @@ func TestUnlockFail(t *testing.T) {
 
 	resp := errors.New("things and stuff went wrong")
 	ls := newTestLockServer(resp, []cl.Lock{
-		cl.New("mylock", "bar"),
+		cl.New("mylock", "bar", 1),
 	})
 	cancel, err := ipc.Run(ls, conf)
 	defer cancel()
@@ -143,7 +143,7 @@ func TestUnlock_LockDoesNotExist(t *testing.T) {
 	assert := assert.New(t)
 
 	ls := newTestLockServer(nil, []cl.Lock{
-		cl.New("foo", "bar"),
+		cl.New("foo", "bar", 1),
 	})
 
 	cancel, err := ipc.Run(ls, conf)
@@ -167,12 +167,12 @@ func TestListLocks(t *testing.T) {
 	assert := assert.New(t)
 
 	locks := []cl.Lock{
-		cl.New("foo", "bar"),
-		cl.New("you", "there"),
-		cl.New("a", "baz"),
-		cl.New("b", "baz"),
-		cl.New("c", "baz"),
-		cl.New("you", "here"),
+		cl.New("foo", "bar", 1),
+		cl.New("you", "there", 2),
+		cl.New("a", "baz", 3),
+		cl.New("b", "baz", 4),
+		cl.New("c", "baz", 5),
+		cl.New("you", "here", 6),
 	}
 
 	ls := newTestLockServer(nil, locks)
@@ -183,8 +183,12 @@ func TestListLocks(t *testing.T) {
 
 	out, errout := runMain(t)
 	assert.Equal(
-		"{Name: foo, Key: bar}\n{Name: you, Key: there}\n{Name: a, Key: baz}\n"+
-			"{Name: b, Key: baz}\n{Name: c, Key: baz}\n{Name: you, Key: here}\n",
+		"{Name: foo, Key: bar, Size: 1}\n"+
+			"{Name: you, Key: there, Size: 2}\n"+
+			"{Name: a, Key: baz, Size: 3}\n"+
+			"{Name: b, Key: baz, Size: 4}\n"+
+			"{Name: c, Key: baz, Size: 5}\n"+
+			"{Name: you, Key: here, Size: 6}\n",
 		out)
 	assert.Equal("", errout)
 

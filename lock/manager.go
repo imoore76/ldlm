@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,6 +32,8 @@ import (
 var (
 	ErrLockDoesNotExist = errors.New("a lock by that name does not exist")
 	ErrManagerShutdown  = errors.New("lock manager is shutdown")
+	ErrLockSizeMismatch = errors.New("lock size mismatch")
+	ErrInvalidLockSize  = errors.New("lock size must be greater than 0")
 )
 
 // A ManagedLock is a lock with a some record keeping fields for
@@ -45,17 +48,18 @@ type ManagedLock struct {
 // LockInfo is a struct that contains only basic information about a lock
 type LockInfo struct {
 	Name         string
-	Key          string // The lock key
+	Keys         string // The lock key*s)
 	LastAccessed time.Time
 	Locked       bool
+	Size         int // The lock size
 }
 
 // NewManagedLock returns a managed lock object with the given name
-func NewManagedLock(name string, ctx context.Context) *ManagedLock {
+func NewManagedLock(name string, ctx context.Context, size int32) *ManagedLock {
 	return &ManagedLock{
 		Name:         name,
 		lastAccessed: time.Now(),
-		Lock:         NewLock(ctx),
+		Lock:         NewLock(ctx, size),
 	}
 }
 
@@ -140,26 +144,36 @@ func (m *Manager) shutdown() {
 }
 
 // getLock gets or creates a lock with the given name
-func (m *Manager) getLock(name string, create bool) *ManagedLock {
+func (m *Manager) getLock(name string, create bool, size int32) (*ManagedLock, error) {
+	if size <= 0 {
+		return nil, ErrInvalidLockSize
+	}
+
 	m.lock()
 	defer m.unlock()
 
 	l, ok := m.locks[name]
 	if ok {
+		if create && size != l.Size() {
+			// Different size requested
+			return nil, ErrLockSizeMismatch
+		}
+
 		// Existing lock found
 		l.lastAccessed = time.Now()
-		return l
+		return l, nil
+
 	} else if !create {
 		// Caller did not want a lock created
-		return nil
+		return nil, ErrLockDoesNotExist
 	}
 
-	m.locks[name] = NewManagedLock(name, m.ctx)
-	return m.locks[name]
+	m.locks[name] = NewManagedLock(name, m.ctx, size)
+	return m.locks[name], nil
 }
 
 // Lock obtains a lock on the named lock. It blocks until a lock is obtained or is canceled / timed out by context
-func (m *Manager) Lock(name string, key string, ctx context.Context) (chan interface{}, error) {
+func (m *Manager) Lock(name string, key string, size int32, ctx context.Context) (chan interface{}, error) {
 	m.shutdownMtx.RLock()
 	defer m.shutdownMtx.RUnlock()
 
@@ -167,7 +181,10 @@ func (m *Manager) Lock(name string, key string, ctx context.Context) (chan inter
 		return nil, ErrManagerShutdown
 	}
 
-	l := m.getLock(name, true)
+	l, err := m.getLock(name, true, size)
+	if err != nil {
+		return nil, err
+	}
 	if l.deleted {
 		panic(fmt.Sprintf("Tried to lock deleted lock %s", name))
 	}
@@ -175,7 +192,7 @@ func (m *Manager) Lock(name string, key string, ctx context.Context) (chan inter
 }
 
 // TryLock tries lock the named lock and immediately fails / succeeds
-func (m *Manager) TryLock(name string, key string) (bool, error) {
+func (m *Manager) TryLock(name string, key string, size int32) (bool, error) {
 	m.shutdownMtx.RLock()
 	defer m.shutdownMtx.RUnlock()
 
@@ -183,11 +200,14 @@ func (m *Manager) TryLock(name string, key string) (bool, error) {
 		return false, ErrManagerShutdown
 	}
 
-	l := m.getLock(name, true)
+	l, err := m.getLock(name, true, size)
+	if err != nil {
+		return false, err
+	}
 	if l.deleted {
 		panic(fmt.Sprintf("Tried to lock deleted lock %s", name))
 	}
-	return l.Lock.TryLock(key)
+	return l.TryLock(key)
 }
 
 // Unlock surprisingly unlocks the named lock
@@ -199,7 +219,10 @@ func (m *Manager) Unlock(name string, key string) (bool, error) {
 		return false, ErrManagerShutdown
 	}
 
-	l := m.getLock(name, false)
+	l, err := m.getLock(name, false, 1)
+	if err != nil {
+		return false, err
+	}
 	if l == nil {
 		return false, ErrLockDoesNotExist
 	}
@@ -221,7 +244,7 @@ func (m *Manager) lockGc(minIdle time.Duration) {
 	numDeleted := 0
 	for _, v := range m.locks {
 		v.lockKey()
-		if v.key == "" && time.Since(v.lastAccessed) > minIdle {
+		if len(v.keys) == 0 && time.Since(v.lastAccessed) > minIdle {
 			v.deleted = true
 			close(v.mtx)
 			delete(m.locks, v.Name)
@@ -240,14 +263,13 @@ func (m *Manager) Locks() []LockInfo {
 	locks := make([]LockInfo, len(m.locks))
 	idx := 0
 	for name, l := range m.locks {
-		l.lockKey()
+		keys := l.Keys()
 		locks[idx] = LockInfo{
 			Name:         name,
-			Key:          l.key,
+			Keys:         strings.Join(keys, ", "),
 			LastAccessed: l.lastAccessed,
-			Locked:       l.key != "",
+			Locked:       len(keys) > 0,
 		}
-		l.unlockKey()
 		idx++
 	}
 	return locks

@@ -85,13 +85,13 @@ func TestLocking(t *testing.T) {
 	assert.Nil(err)
 
 	client := newTestClient(s)
-	res, err := s.Lock(client.ctx, "testlock", nil, nil)
+	res, err := s.Lock(client.ctx, "testlock", nil, nil, nil)
 	assert.Nil(err)
 	assert.True(res.Locked, "Could not obtain lock")
 	client1Key = res.Key
 
 	client2 := newTestClient(s)
-	res, err = s.TryLock(client2.ctx, "testlock", nil)
+	res, err = s.TryLock(client2.ctx, "testlock", nil, nil)
 	assert.Nil(err)
 	assert.False(res.Locked, "Locked when lock was held")
 	client2Key = res.Key
@@ -102,7 +102,7 @@ func TestLocking(t *testing.T) {
 	go func() {
 		// Wait for lock
 		started := time.Now()
-		res, err := s.Lock(client2.ctx, "testlock", nil, nil)
+		res, err := s.Lock(client2.ctx, "testlock", nil, nil, nil)
 		assert.Nil(err)
 		assert.True(res.Locked, "Lock should have been obtained")
 		assert.GreaterOrEqual(
@@ -144,6 +144,87 @@ func TestLocking(t *testing.T) {
 
 }
 
+func TestLocking_Size(t *testing.T) {
+	assert := assert.New(t)
+
+	sz := new(int32)
+	*sz = 3
+
+	var client1Key, client2Key string
+	c := getTestConfig(nil)
+
+	s, cancelFunc, err := server.New(c)
+	defer cancelFunc()
+	assert.Nil(err)
+
+	client := newTestClient(s)
+	res, err := s.Lock(client.ctx, "testlock", sz, nil, nil)
+	assert.Nil(err)
+	assert.True(res.Locked, "Could not obtain lock")
+
+	res, err = s.TryLock(client.ctx, "testlock", sz, nil)
+	assert.Nil(err)
+	assert.True(res.Locked, "Could not obtain lock")
+
+	res, err = s.TryLock(client.ctx, "testlock", sz, nil)
+	assert.Nil(err)
+	assert.True(res.Locked, "Could not obtain lock")
+
+	client1Key = res.Key
+
+	client2 := newTestClient(s)
+	res, err = s.TryLock(client2.ctx, "testlock", sz, nil)
+	assert.Nil(err)
+	assert.False(res.Locked, "Locked when lock was held")
+	client2Key = res.Key
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		// Wait for lock
+		started := time.Now()
+		res, err := s.Lock(client2.ctx, "testlock", sz, nil, nil)
+		assert.Nil(err)
+		assert.True(res.Locked, "Lock should have been obtained")
+		assert.GreaterOrEqual(
+			time.Since(started),
+			(2 * time.Second),
+			"It should have been 2 or more seconds waiting to acquire lock",
+		)
+		client2Key = res.Key
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		unlocked, err := s.Unlock(client.ctx, "testlock", client1Key)
+		if err != nil {
+			// can't call t.FailNow from goroutine
+			panic(fmt.Sprintf("Error unlocking lock %v", err.Error()))
+		} else {
+			assert.Nil(nil)
+			assert.True(unlocked, "lock should be unlocked")
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	// This should fail because the key is incorrect
+	unlocked, err := s.Unlock(client.ctx, "testlock", client1Key)
+	assert.NotNil(err)
+	assert.False(unlocked, "lock should not be unlocked")
+	assert.Equal("invalid lock key", err.Error())
+
+	// This should succeed
+	unlocked, err = s.Unlock(client2.ctx, "testlock", client2Key)
+	assert.Nil(err)
+	assert.Nil(err)
+	assert.True(unlocked, "lock should be unlocked")
+}
+
 func TestClientDisconnectUnlock(t *testing.T) {
 	assert := assert.New(t)
 
@@ -155,13 +236,13 @@ func TestClientDisconnectUnlock(t *testing.T) {
 
 	// client1 obtains "testlock"
 	client1 := newTestClient(s)
-	res, err := s.TryLock(client1.ctx, "testlock", nil)
+	res, err := s.TryLock(client1.ctx, "testlock", nil, nil)
 	assert.Nil(err)
 	assert.True(res.Locked)
 
 	// client2 obtains "testlock2"
 	client2 := newTestClient(s)
-	res, err = s.TryLock(client2.ctx, "testlock2", nil)
+	res, err = s.TryLock(client2.ctx, "testlock2", nil, nil)
 	assert.Nil(err)
 	assert.True(res.Locked)
 
@@ -171,7 +252,7 @@ func TestClientDisconnectUnlock(t *testing.T) {
 	go func() {
 		// Wait for lock
 		started := time.Now()
-		res, err := s.Lock(client3.ctx, "testlock", nil, nil)
+		res, err := s.Lock(client3.ctx, "testlock", nil, nil, nil)
 		assert.Nil(err)
 		assert.True(res.Locked, "Lock should have been obtained")
 		assert.GreaterOrEqual(
@@ -193,7 +274,7 @@ func TestClientDisconnectUnlock(t *testing.T) {
 	// client1 disconnected and its locks have should be unlocked. Now client3
 	// holds "testlock". "testlock2" should still be held by client2 as the
 	// client connection cleanup should be restricted to locks held by client1
-	res, err = s.TryLock(client3.ctx, "testlock2", nil)
+	res, err = s.TryLock(client3.ctx, "testlock2", nil, nil)
 	assert.Nil(err)
 	assert.False(res.Locked, "testlock2 should be held by client2")
 }
@@ -226,14 +307,14 @@ func TestLockEmptyName(t *testing.T) {
 	assert.Nil(err)
 
 	client1 := newTestClient(s)
-	res, err := s.Lock(client1.ctx, "", nil, nil)
+	res, err := s.Lock(client1.ctx, "", nil, nil, nil)
 	assert.NotNil(err)
 	assert.False(res.Locked)
 	if err != nil {
 		assert.ErrorIs(err, server.ErrEmptyName)
 	}
 
-	res, err = s.TryLock(client1.ctx, "", nil)
+	res, err = s.TryLock(client1.ctx, "", nil, nil)
 	assert.NotNil(err)
 	assert.False(res.Locked)
 	if err != nil {
@@ -253,14 +334,14 @@ func TestLockWaitTimeout(t *testing.T) {
 
 	// Client1 holds lock
 	client1 := newTestClient(s)
-	res, err := s.TryLock(client1.ctx, "testlock", nil)
+	res, err := s.TryLock(client1.ctx, "testlock", nil, nil)
 	assert.Nil(err)
 	assert.True(res.Locked)
 
 	// Client2 calls WaitLock with a timeout
 	client2 := newTestClient(s)
 	var to int32 = 1
-	res2, err := s.Lock(client2.ctx, "testlock", nil, &to)
+	res2, err := s.Lock(client2.ctx, "testlock", nil, nil, &to)
 
 	// The result is that a timeout error is returned
 	assert.NotNil(err)
@@ -282,7 +363,7 @@ func TestLockWaiterDisconnects(t *testing.T) {
 
 	// client1 obtains lock
 	client1 := newTestClient(s)
-	res, err := s.TryLock(client1.ctx, "testlock", nil)
+	res, err := s.TryLock(client1.ctx, "testlock", nil, nil)
 	assert.Nil(err)
 	assert.True(res.Locked)
 	client1Key = res.Key
@@ -290,7 +371,7 @@ func TestLockWaiterDisconnects(t *testing.T) {
 	// client2 waits on lock
 	client2 := newTestClient(s)
 	go func() {
-		s.Lock(client2.ctx, "testlock", nil, nil)
+		s.Lock(client2.ctx, "testlock", nil, nil, nil)
 	}()
 	time.Sleep(2 * time.Second)
 
@@ -308,7 +389,7 @@ func TestLockWaiterDisconnects(t *testing.T) {
 	// client3 can obtain lock
 	// (lock is not deadlocked by being handed out to a disconnected client)
 	client3 := newTestClient(s)
-	res3, err := s.TryLock(client3.ctx, "testlock", nil)
+	res3, err := s.TryLock(client3.ctx, "testlock", nil, nil)
 	assert.Nil(err)
 	assert.True(res3.Locked)
 }
@@ -327,12 +408,12 @@ func TestLockTimerTimeout(t *testing.T) {
 	client2 := newTestClient(s)
 
 	timeout := int32(3)
-	res, err := s.TryLock(client1.ctx, "testlock", &timeout)
+	res, err := s.TryLock(client1.ctx, "testlock", nil, &timeout)
 	assert.Nil(err)
 	assert.True(res.Locked)
 	lockKey := res.Key
 
-	res, err = s.TryLock(client2.ctx, "testlock", nil)
+	res, err = s.TryLock(client2.ctx, "testlock", nil, nil)
 	assert.Nil(err)
 	assert.False(res.Locked, "Lock should not have been obtained")
 
@@ -341,7 +422,7 @@ func TestLockTimerTimeout(t *testing.T) {
 	go func() {
 		// Wait for lock
 		started := time.Now()
-		res, err := s.Lock(client2.ctx, "testlock", nil, nil)
+		res, err := s.Lock(client2.ctx, "testlock", nil, nil, nil)
 		assert.Nil(err)
 		assert.True(res.Locked, "Lock should have been obtained")
 		assert.GreaterOrEqual(
@@ -379,7 +460,7 @@ func TestLockTimerRefresh(t *testing.T) {
 	client2 := newTestClient(s)
 
 	timeout := int32(1)
-	res, err := s.TryLock(client1.ctx, "testlock", &timeout)
+	res, err := s.TryLock(client1.ctx, "testlock", nil, &timeout)
 	assert.Nil(err)
 	assert.True(res.Locked, "Client1 should have obtained lock")
 	lockKey := res.Key
@@ -402,7 +483,7 @@ func TestLockTimerRefresh(t *testing.T) {
 		}
 	}()
 
-	res, err = s.TryLock(client2.ctx, "testlock", nil)
+	res, err = s.TryLock(client2.ctx, "testlock", nil, nil)
 	assert.Nil(err)
 	assert.False(res.Locked, "Lock should not have been obtained by client2")
 
@@ -411,7 +492,7 @@ func TestLockTimerRefresh(t *testing.T) {
 	go func() {
 		// Wait for lock
 		started := time.Now()
-		res, err := s.Lock(client2.ctx, "testlock", nil, nil)
+		res, err := s.Lock(client2.ctx, "testlock", nil, nil, nil)
 		assert.Nil(err)
 		assert.True(res.Locked, "Lock should have been obtained by client2")
 		assert.GreaterOrEqual(
@@ -457,7 +538,7 @@ func TestLoadLocks(t *testing.T) {
 	assert.NoError(err)
 
 	rwr.Write(map[string][]cl.Lock{
-		"testkey": {cl.New("testlock", "testkey")},
+		"testkey": {cl.New("testlock", "testkey", 1)},
 	})
 	rwr.Close()
 
@@ -466,13 +547,13 @@ func TestLoadLocks(t *testing.T) {
 	assert.Nil(err)
 
 	client := newTestClient(s)
-	res, err := s.TryLock(client.ctx, "testlock", nil)
+	res, err := s.TryLock(client.ctx, "testlock", nil, nil)
 	assert.Nil(err)
 	assert.False(res.Locked, "Locked when lock was held")
 
 	time.Sleep(2500 * time.Millisecond)
 
-	res, err = s.TryLock(client.ctx, "testlock", nil)
+	res, err = s.TryLock(client.ctx, "testlock", nil, nil)
 	assert.Nil(err)
 	assert.True(res.Locked, "Could not obtain lock")
 
@@ -503,13 +584,16 @@ func TestLocksMethod_Some(t *testing.T) {
 	assert.Nil(err)
 
 	client1 := newTestClient(s)
-	lr1, err := s.TryLock(client1.ctx, "testlock", nil)
+	sz := new(int32)
+	*sz = 2
+	lr1, err := s.TryLock(client1.ctx, "testlock", sz, nil)
 	assert.Nil(err)
-	lr2, err := s.TryLock(client1.ctx, "testlock2", nil)
+	*sz = 5
+	lr2, err := s.TryLock(client1.ctx, "testlock2", sz, nil)
 	assert.Nil(err)
 
 	assert.Equal([]cl.Lock{
-		cl.New("testlock", lr1.Key),
-		cl.New("testlock2", lr2.Key),
+		cl.New("testlock", lr1.Key, 2),
+		cl.New("testlock2", lr2.Key, 5),
 	}, s.Locks())
 }

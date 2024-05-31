@@ -33,15 +33,15 @@ class LDLMStub(object):
                 request_serializer=ldlm__pb2.LockRequest.SerializeToString,
                 response_deserializer=ldlm__pb2.LockResponse.FromString,
                 )
-        self.Unlock = channel.unary_unary(
-                '/ldlm.LDLM/Unlock',
-                request_serializer=ldlm__pb2.UnlockRequest.SerializeToString,
-                response_deserializer=ldlm__pb2.UnlockResponse.FromString,
-                )
         self.TryLock = channel.unary_unary(
                 '/ldlm.LDLM/TryLock',
                 request_serializer=ldlm__pb2.TryLockRequest.SerializeToString,
                 response_deserializer=ldlm__pb2.LockResponse.FromString,
+                )
+        self.Unlock = channel.unary_unary(
+                '/ldlm.LDLM/Unlock',
+                request_serializer=ldlm__pb2.UnlockRequest.SerializeToString,
+                response_deserializer=ldlm__pb2.UnlockResponse.FromString,
                 )
         self.RefreshLock = channel.unary_unary(
                 '/ldlm.LDLM/RefreshLock',
@@ -59,13 +59,13 @@ class LDLMServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def Unlock(self, request, context):
+    def TryLock(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def TryLock(self, request, context):
+    def Unlock(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -85,15 +85,15 @@ def add_LDLMServicer_to_server(servicer, server):
                     request_deserializer=ldlm__pb2.LockRequest.FromString,
                     response_serializer=ldlm__pb2.LockResponse.SerializeToString,
             ),
-            'Unlock': grpc.unary_unary_rpc_method_handler(
-                    servicer.Unlock,
-                    request_deserializer=ldlm__pb2.UnlockRequest.FromString,
-                    response_serializer=ldlm__pb2.UnlockResponse.SerializeToString,
-            ),
             'TryLock': grpc.unary_unary_rpc_method_handler(
                     servicer.TryLock,
                     request_deserializer=ldlm__pb2.TryLockRequest.FromString,
                     response_serializer=ldlm__pb2.LockResponse.SerializeToString,
+            ),
+            'Unlock': grpc.unary_unary_rpc_method_handler(
+                    servicer.Unlock,
+                    request_deserializer=ldlm__pb2.UnlockRequest.FromString,
+                    response_serializer=ldlm__pb2.UnlockResponse.SerializeToString,
             ),
             'RefreshLock': grpc.unary_unary_rpc_method_handler(
                     servicer.RefreshLock,
@@ -128,23 +128,6 @@ class LDLM(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def Unlock(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/ldlm.LDLM/Unlock',
-            ldlm__pb2.UnlockRequest.SerializeToString,
-            ldlm__pb2.UnlockResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
     def TryLock(request,
             target,
             options=(),
@@ -158,6 +141,23 @@ class LDLM(object):
         return grpc.experimental.unary_unary(request, target, '/ldlm.LDLM/TryLock',
             ldlm__pb2.TryLockRequest.SerializeToString,
             ldlm__pb2.LockResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def Unlock(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/ldlm.LDLM/Unlock',
+            ldlm__pb2.UnlockRequest.SerializeToString,
+            ldlm__pb2.UnlockResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

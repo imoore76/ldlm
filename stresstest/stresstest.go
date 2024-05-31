@@ -101,7 +101,7 @@ func newApiClient(conf *Config) *apiClient {
 		creds = credentials.NewTLS(tlsc)
 	}
 
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		conf.Address,
 		grpc.WithTransportCredentials(creds),
 	)

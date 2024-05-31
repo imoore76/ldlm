@@ -145,7 +145,7 @@ func marshalLocks(m map[string][]cl.Lock) ([]byte, error) {
 	sz := bstd.SizeUInt() // size is uint
 	for k, v := range m { // add size of key, then size of slice for each value in map
 		sz += bstd.SizeString(k) + bstd.SizeSlice(v, func(clk cl.Lock) int {
-			return bstd.SizeString(clk.Name()) + bstd.SizeString(clk.Key())
+			return bstd.SizeString(clk.Name()) + bstd.SizeString(clk.Key()) + bstd.SizeInt32()
 		})
 	}
 	n, buf := bstd.Marshal(sz)
@@ -194,12 +194,13 @@ func unmarshalLocks(b []byte) (map[string][]cl.Lock, error) {
 // marshalLock marshals a single client lock struct
 func marshalLock(n int, b []byte, l cl.Lock) int {
 	// Calculate the size of the struct
-	sz := bstd.SizeString(l.Name()) + bstd.SizeString(l.Key())
+	sz := bstd.SizeString(l.Name()) + bstd.SizeString(l.Key()) + bstd.SizeInt32()
 
 	// Serialize the struct into a byte slice
 	nn, buf := bstd.Marshal(sz)
 	nn = bstd.MarshalString(nn, buf, l.Name())
-	bstd.MarshalString(nn, buf, l.Key())
+	nn = bstd.MarshalString(nn, buf, l.Key())
+	bstd.MarshalInt32(nn, buf, l.Size())
 
 	copy(b[n:n+sz], buf)
 
@@ -209,21 +210,24 @@ func marshalLock(n int, b []byte, l cl.Lock) int {
 
 // unmarshalLock unmarshals a single client lock struct
 func unmarshalLock(n int, b []byte) (int, cl.Lock, error) {
-	clk := cl.New("", "")
+	clk := cl.New("", "", 0)
 
 	var name, key string
 	// Deserialize the byte slice into the struct
-	n, str, err := bstd.UnmarshalString(n, b)
+	n, name, err := bstd.UnmarshalString(n, b)
 	if err != nil {
 		return 0, clk, err
 	}
-	name = str
 
-	n, str, err = bstd.UnmarshalString(n, b)
+	n, key, err = bstd.UnmarshalString(n, b)
 	if err != nil {
 		return 0, clk, err
 	}
-	key = str
 
-	return n, cl.New(name, key), nil
+	n, size, err := bstd.UnmarshalInt32(n, b)
+	if err != nil {
+		return 0, clk, err
+	}
+
+	return n, cl.New(name, key, size), nil
 }

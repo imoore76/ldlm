@@ -86,7 +86,7 @@ func TestUnlock(t *testing.T) {
 	assert := assert.New(t)
 
 	ls := newTestLockServer(true, []cl.Lock{
-		cl.New("mylock", "bar"),
+		cl.New("mylock", "bar", 1),
 	})
 
 	c, cleanup := conf()
@@ -128,7 +128,7 @@ func TestUnlockFail(t *testing.T) {
 	assert := assert.New(t)
 
 	ls := newTestLockServer(false, []cl.Lock{
-		cl.New("mylock", "bar"),
+		cl.New("mylock", "bar", 1),
 	})
 	ls.unlockError = errors.New("things and stuff went wrong")
 
@@ -155,7 +155,7 @@ func TestUnlock_LockDoesNotExist(t *testing.T) {
 	defer cleanup()
 
 	close, err := ipc.Run(newTestLockServer(false, []cl.Lock{
-		cl.New("foo", "bar"),
+		cl.New("foo", "bar", 1),
 	}), c)
 	defer close()
 	assert.NoError(err)
@@ -174,12 +174,12 @@ func TestListLocks(t *testing.T) {
 	assert := assert.New(t)
 
 	locks := []cl.Lock{
-		cl.New("foo", "bar"),
-		cl.New("you", "there"),
-		cl.New("a", "baz"),
-		cl.New("b", "baz"),
-		cl.New("c", "baz"),
-		cl.New("you", "here"),
+		cl.New("foo", "bar", 22),
+		cl.New("you", "there", 2),
+		cl.New("a", "baz", 1),
+		cl.New("b", "baz", 1),
+		cl.New("c", "baz", 4),
+		cl.New("you", "here", 6),
 	}
 
 	c, cleanup := conf()
@@ -195,8 +195,12 @@ func TestListLocks(t *testing.T) {
 	assert.Nil(err)
 
 	assert.Equal(
-		"{Name: foo, Key: bar},{Name: you, Key: there},{Name: a, Key: baz},"+
-			"{Name: b, Key: baz},{Name: c, Key: baz},{Name: you, Key: here}",
+		"{Name: foo, Key: bar, Size: 22},"+
+			"{Name: you, Key: there, Size: 2},"+
+			"{Name: a, Key: baz, Size: 1},"+
+			"{Name: b, Key: baz, Size: 1},"+
+			"{Name: c, Key: baz, Size: 4},"+
+			"{Name: you, Key: here, Size: 6}",
 		strings.Join([]string(*lockList), ","),
 	)
 }

@@ -94,13 +94,13 @@ func New(c *LockServerConfig) (*LockServer, func(), error) {
 	for sessionId, locks := range sessionLocks {
 		for _, lk := range locks {
 
-			locked, err := l.lockMgr.TryLock(lk.Name(), lk.Key())
+			locked, err := l.lockMgr.TryLock(lk.Name(), lk.Key(), lk.Size())
 			if err != nil || !locked {
 				slog.Error("Error locking loaded locks lockMgr.TryLock()",
 					"name", lk.Name(), "key", lk.Key(), "error", err.Error(),
 				)
 				// Locking failed, remove the loaded lock from sessMgr
-				l.sessMgr.RemoveLock(lk.Name(), sessionId)
+				l.sessMgr.RemoveLock(lk.Name(), lk.Key(), sessionId)
 				continue
 			}
 			l.lockTimerMgr.Add(
@@ -132,7 +132,7 @@ func New(c *LockServerConfig) (*LockServer, func(), error) {
 }
 
 // Lock blocks until the lock is obtained or is canceled / timed out by context
-func (l *LockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *int32, waitTimeoutSeconds *int32) (*Lock, error) {
+func (l *LockServer) Lock(ctx context.Context, name string, size *int32, lockTimeoutSeconds *int32, waitTimeoutSeconds *int32) (*Lock, error) {
 	sessionId, ok := l.SessionId(ctx)
 	if !ok {
 		return nil, ErrSessionDoesNotExist
@@ -145,7 +145,12 @@ func (l *LockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *
 		return nil, ErrInvalidWaitTimeout
 	}
 
-	key := sessionId
+	if size == nil {
+		size = new(int32)
+		*size = 1
+	}
+
+	key := uuid.NewString()
 	ctxLog := log.FromContextOrDefault(ctx)
 
 	lockCtx := ctx
@@ -173,7 +178,7 @@ func (l *LockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *
 	if name == "" {
 		err = ErrEmptyName
 	} else {
-		locker, err = l.lockMgr.Lock(name, key, lockCtx)
+		locker, err = l.lockMgr.Lock(name, key, *size, lockCtx)
 	}
 	// Empty lock name or error from lockMgr.Lock
 	if err != nil {
@@ -205,7 +210,7 @@ func (l *LockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *
 		locked = true
 
 		// Add lock to sessMgr
-		l.sessMgr.AddLock(name, key, sessionId)
+		l.sessMgr.AddLock(name, key, *size, sessionId)
 
 		// Add lock timer if lock timeout is set
 		if lockTimeoutSeconds != nil && *lockTimeoutSeconds > 0 {
@@ -247,7 +252,7 @@ func (l *LockServer) Unlock(ctx context.Context, name string, key string) (bool,
 
 	if unlocked {
 		// Remove from lock map and lock timer
-		l.sessMgr.RemoveLock(name, sessionId)
+		l.sessMgr.RemoveLock(name, key, sessionId)
 		l.lockTimerMgr.Remove(name + key)
 	}
 
@@ -263,7 +268,7 @@ func (l *LockServer) Unlock(ctx context.Context, name string, key string) (bool,
 }
 
 // TryLock attempts to acquire the lock and immediately fails or succeeds
-func (l *LockServer) TryLock(ctx context.Context, name string, lockTimeoutSeconds *int32) (*Lock, error) {
+func (l *LockServer) TryLock(ctx context.Context, name string, size *int32, lockTimeoutSeconds *int32) (*Lock, error) {
 	sessionId, ok := l.SessionId(ctx)
 	if !ok {
 		return nil, ErrSessionDoesNotExist
@@ -273,7 +278,12 @@ func (l *LockServer) TryLock(ctx context.Context, name string, lockTimeoutSecond
 		return nil, ErrInvalidLockTimeout
 	}
 
-	key := sessionId
+	if size == nil {
+		size = new(int32)
+		*size = 1
+	}
+
+	key := uuid.NewString()
 	ctxLog := log.FromContextOrDefault(ctx)
 
 	ctxLog.Info(
@@ -290,12 +300,12 @@ func (l *LockServer) TryLock(ctx context.Context, name string, lockTimeoutSecond
 		locked = false
 		err = ErrEmptyName
 	} else {
-		locked, err = l.lockMgr.TryLock(name, key)
+		locked, err = l.lockMgr.TryLock(name, key, *size)
 	}
 
 	if locked {
 		// Add lock to sessMgr
-		l.sessMgr.AddLock(name, key, sessionId)
+		l.sessMgr.AddLock(name, key, *size, sessionId)
 
 		// Add lock timer if lock timeout is set
 		if lockTimeoutSeconds != nil && *lockTimeoutSeconds > 0 {
@@ -397,8 +407,7 @@ func (l *LockServer) DestroySession(ctx context.Context) (sessionId string) {
 	sessionId = ctx.Value(sessionCtxKey).(string)
 
 	// This section is hit when the server is being shut down. We don't to clear all locks on
-	// shutdown, otherwise the session manager will write all 0 locks to the state file on
-	// shutdown.
+	// shutdown, otherwise the session manager will write all 0 locks to the state file.
 	if l.isShutdown.Load() {
 		return
 	}
@@ -431,7 +440,7 @@ func (l *LockServer) DestroySession(ctx context.Context) (sessionId string) {
 				"Unlocked during client session cleanup",
 				"lock", lk.Name(),
 			)
-			l.lockTimerMgr.Remove(lk.Name())
+			l.lockTimerMgr.Remove(lk.Name() + lk.Key())
 		}
 	}
 
@@ -468,6 +477,6 @@ func (l *LockServer) onTimeoutFunc(ctx context.Context, name string, key string,
 				)
 			}
 		}()
-		l.sessMgr.RemoveLock(name, sessionId)
+		l.sessMgr.RemoveLock(name, key, sessionId)
 	}
 }

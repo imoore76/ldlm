@@ -30,8 +30,8 @@ type GrpcConfig struct {
 
 // The interface required by the gRPC server to interact with a lock server
 type lockServer interface {
-	Lock(ctx context.Context, name string, lockTimeoutSeconds *int32, waitTimeoutSeconds *int32) (*server.Lock, error)
-	TryLock(ctx context.Context, name string, lockTimeoutSeconds *int32) (*server.Lock, error)
+	Lock(ctx context.Context, name string, size *int32, lockTimeoutSeconds *int32, waitTimeoutSeconds *int32) (*server.Lock, error)
+	TryLock(ctx context.Context, name string, size *int32, lockTimeoutSeconds *int32) (*server.Lock, error)
 	Unlock(ctx context.Context, name string, key string) (bool, error)
 	RefreshLock(ctx context.Context, name string, key string, lockTimeoutSeconds int32) (*server.Lock, error)
 	DestroySession(ctx context.Context) string

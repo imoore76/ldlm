@@ -89,7 +89,7 @@ func (l *sessionManager) Save() error {
 }
 
 // Remove removes a lock from the client <-> lock map
-func (l *sessionManager) RemoveLock(name string, sessionId string) {
+func (l *sessionManager) RemoveLock(name string, key string, sessionId string) {
 	l.sessionLocksMtx.Lock()
 	defer l.sessionLocksMtx.Unlock()
 
@@ -106,7 +106,7 @@ func (l *sessionManager) RemoveLock(name string, sessionId string) {
 
 	newSlice := make([]cl.Lock, 0, len(locks)-1)
 	for _, l := range locks {
-		if l.Name() == name {
+		if l.Name() == name && l.Key() == key {
 			continue
 		}
 		newSlice = append(newSlice, l)
@@ -119,11 +119,11 @@ func (l *sessionManager) RemoveLock(name string, sessionId string) {
 }
 
 // Add adds lock to the client -> lock map
-func (l *sessionManager) AddLock(name string, key string, sessionId string) {
+func (l *sessionManager) AddLock(name string, key string, size int32, sessionId string) {
 	l.sessionLocksMtx.Lock()
 	defer l.sessionLocksMtx.Unlock()
 
-	l.sessionLocks[sessionId] = append(l.sessionLocks[sessionId], cl.New(name, key))
+	l.sessionLocks[sessionId] = append(l.sessionLocks[sessionId], cl.New(name, key, size))
 
 	if err := l.Save(); err != nil {
 		panic(err)

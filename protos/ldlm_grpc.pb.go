@@ -34,8 +34,8 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	LDLM_Lock_FullMethodName        = "/ldlm.LDLM/Lock"
-	LDLM_Unlock_FullMethodName      = "/ldlm.LDLM/Unlock"
 	LDLM_TryLock_FullMethodName     = "/ldlm.LDLM/TryLock"
+	LDLM_Unlock_FullMethodName      = "/ldlm.LDLM/Unlock"
 	LDLM_RefreshLock_FullMethodName = "/ldlm.LDLM/RefreshLock"
 )
 
@@ -44,8 +44,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LDLMClient interface {
 	Lock(ctx context.Context, in *LockRequest, opts ...grpc.CallOption) (*LockResponse, error)
-	Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc.CallOption) (*UnlockResponse, error)
 	TryLock(ctx context.Context, in *TryLockRequest, opts ...grpc.CallOption) (*LockResponse, error)
+	Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc.CallOption) (*UnlockResponse, error)
 	RefreshLock(ctx context.Context, in *RefreshLockRequest, opts ...grpc.CallOption) (*LockResponse, error)
 }
 
@@ -66,18 +66,18 @@ func (c *lDLMClient) Lock(ctx context.Context, in *LockRequest, opts ...grpc.Cal
 	return out, nil
 }
 
-func (c *lDLMClient) Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc.CallOption) (*UnlockResponse, error) {
-	out := new(UnlockResponse)
-	err := c.cc.Invoke(ctx, LDLM_Unlock_FullMethodName, in, out, opts...)
+func (c *lDLMClient) TryLock(ctx context.Context, in *TryLockRequest, opts ...grpc.CallOption) (*LockResponse, error) {
+	out := new(LockResponse)
+	err := c.cc.Invoke(ctx, LDLM_TryLock_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *lDLMClient) TryLock(ctx context.Context, in *TryLockRequest, opts ...grpc.CallOption) (*LockResponse, error) {
-	out := new(LockResponse)
-	err := c.cc.Invoke(ctx, LDLM_TryLock_FullMethodName, in, out, opts...)
+func (c *lDLMClient) Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc.CallOption) (*UnlockResponse, error) {
+	out := new(UnlockResponse)
+	err := c.cc.Invoke(ctx, LDLM_Unlock_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -98,8 +98,8 @@ func (c *lDLMClient) RefreshLock(ctx context.Context, in *RefreshLockRequest, op
 // for forward compatibility
 type LDLMServer interface {
 	Lock(context.Context, *LockRequest) (*LockResponse, error)
-	Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error)
 	TryLock(context.Context, *TryLockRequest) (*LockResponse, error)
+	Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error)
 	RefreshLock(context.Context, *RefreshLockRequest) (*LockResponse, error)
 	mustEmbedUnimplementedLDLMServer()
 }
@@ -111,11 +111,11 @@ type UnimplementedLDLMServer struct {
 func (UnimplementedLDLMServer) Lock(context.Context, *LockRequest) (*LockResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Lock not implemented")
 }
-func (UnimplementedLDLMServer) Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Unlock not implemented")
-}
 func (UnimplementedLDLMServer) TryLock(context.Context, *TryLockRequest) (*LockResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TryLock not implemented")
+}
+func (UnimplementedLDLMServer) Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Unlock not implemented")
 }
 func (UnimplementedLDLMServer) RefreshLock(context.Context, *RefreshLockRequest) (*LockResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RefreshLock not implemented")
@@ -151,24 +151,6 @@ func _LDLM_Lock_Handler(srv interface{}, ctx context.Context, dec func(interface
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LDLM_Unlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UnlockRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LDLMServer).Unlock(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: LDLM_Unlock_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LDLMServer).Unlock(ctx, req.(*UnlockRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _LDLM_TryLock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TryLockRequest)
 	if err := dec(in); err != nil {
@@ -183,6 +165,24 @@ func _LDLM_TryLock_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LDLMServer).TryLock(ctx, req.(*TryLockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LDLM_Unlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnlockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LDLMServer).Unlock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LDLM_Unlock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LDLMServer).Unlock(ctx, req.(*UnlockRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -217,12 +217,12 @@ var LDLM_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LDLM_Lock_Handler,
 		},
 		{
-			MethodName: "Unlock",
-			Handler:    _LDLM_Unlock_Handler,
-		},
-		{
 			MethodName: "TryLock",
 			Handler:    _LDLM_TryLock_Handler,
+		},
+		{
+			MethodName: "Unlock",
+			Handler:    _LDLM_Unlock_Handler,
 		},
 		{
 			MethodName: "RefreshLock",

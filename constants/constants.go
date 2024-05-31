@@ -23,7 +23,7 @@ const (
 	TestConfigEnvPrefix = "TEST_LDLM_"
 )
 
-// Maintain a consistent log level flag across the codebase
+// Maintain a consistent log level flag across packages
 type LogLevelConfig struct {
 	LogLevel slog.Level `default:"info" short:"v" enum:"debug,info,warn,error" desc:"Log level (debug|info|warn|error)"`
 }

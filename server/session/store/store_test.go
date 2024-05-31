@@ -47,8 +47,8 @@ func TestStoreWriteAndRead(t *testing.T) {
 	assert.NoError(err)
 
 	c := map[string][]cl.Lock{
-		"fname": {cl.New("fname", "fkey")},
-		"lname": {cl.New("fname", "fkey"), cl.New("lname", "lkey")},
+		"fname": {cl.New("fname", "fkey", 1)},
+		"lname": {cl.New("fname", "fkey", 1), cl.New("lname", "lkey", 1)},
 	}
 
 	assert.NoError(r.Write(c))
@@ -65,8 +65,8 @@ func TestStoreWriteAndRead_EmptyFileName(t *testing.T) {
 	assert.NoError(err)
 
 	c := map[string][]cl.Lock{
-		"fname": {cl.New("fname", "fkey")},
-		"lname": {cl.New("fname", "fkey"), cl.New("lname", "lkey")},
+		"fname": {cl.New("fname", "fkey", 1)},
+		"lname": {cl.New("fname", "fkey", 1), cl.New("lname", "lkey", 1)},
 	}
 
 	assert.NoError(r.Write(c))

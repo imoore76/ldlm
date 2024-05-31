@@ -25,10 +25,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLock(t *testing.T) {
+func TestLocking(t *testing.T) {
 	assert := assert.New(t)
 	lctx := context.Background()
-	lk := lock.NewLock(lctx)
+	lk := lock.NewLock(lctx, 1)
 	ctx := context.Background()
 	ch := lk.Lock("key", ctx)
 
@@ -84,7 +84,7 @@ func TestLockTimeout(t *testing.T) {
 	assert := assert.New(t)
 
 	lctx := context.Background()
-	lk := lock.NewLock(lctx)
+	lk := lock.NewLock(lctx, 1)
 
 	locked, err := lk.TryLock("key")
 	assert.Nil(err)
@@ -114,7 +114,7 @@ func TestUnlockInvalidKey(t *testing.T) {
 	assert := assert.New(t)
 
 	lctx := context.Background()
-	lk := lock.NewLock(lctx)
+	lk := lock.NewLock(lctx, 1)
 	locked, err := lk.TryLock("key")
 	assert.Nil(err)
 	assert.True(locked)
@@ -123,4 +123,88 @@ func TestUnlockInvalidKey(t *testing.T) {
 	assert.False(unlocked, "Should not have been able to unlock with different key")
 	assert.Equal(err, lock.ErrInvalidLockKey)
 
+}
+
+func TestTryLock_Size(t *testing.T) {
+	assert := assert.New(t)
+
+	lctx := context.Background()
+	lk := lock.NewLock(lctx, 3)
+
+	locked, err := lk.TryLock("key")
+	assert.Nil(err)
+	assert.True(locked)
+
+	locked, err = lk.TryLock("key")
+	assert.Nil(err)
+	assert.True(locked)
+
+	locked, err = lk.TryLock("key")
+	assert.Nil(err)
+	assert.True(locked)
+
+	locked, err = lk.TryLock("key")
+	assert.Nil(err)
+	assert.False(locked)
+
+	// Unlocking should make room for one more
+	unlocked, err := lk.Unlock("key")
+	assert.True(unlocked, "lock should be unlocked")
+	assert.Nil(err)
+
+	// One more
+	locked, err = lk.TryLock("key")
+	assert.Nil(err)
+	assert.True(locked)
+
+	// But nothing else
+	locked, err = lk.TryLock("key")
+	assert.Nil(err)
+	assert.False(locked)
+}
+
+func TestLock_Size(t *testing.T) {
+	assert := assert.New(t)
+
+	lctx := context.Background()
+	lk := lock.NewLock(lctx, 3)
+
+	ch := lk.Lock("key", lctx)
+	lr := <-ch
+	if err, ok := lr.(error); ok {
+		assert.Fail("Could not obtain lock", err)
+		t.FailNow()
+	}
+
+	ch = lk.Lock("key", lctx)
+	lr = <-ch
+	if err, ok := lr.(error); ok {
+		assert.Fail("Could not obtain lock", err)
+		t.FailNow()
+	}
+
+	ch = lk.Lock("key", lctx)
+	lr = <-ch
+	if err, ok := lr.(error); ok {
+		assert.Fail("Could not obtain lock", err)
+		t.FailNow()
+	}
+
+	ctx, stopWaiting := context.WithCancelCause(lctx)
+	done := make(chan struct{})
+	var locked bool
+	go func() {
+		ch = lk.Lock("key", ctx)
+		lr = <-ch
+		if _, ok := lr.(error); ok {
+			locked = false
+		} else {
+			locked = true
+		}
+		close(done)
+	}()
+	time.Sleep(100 * time.Millisecond)
+	stopWaiting(errors.New("stop waiting"))
+	<-done
+	assert.False(locked)
 }

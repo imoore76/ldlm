@@ -21,7 +21,6 @@ import (
 	"log"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -73,15 +72,11 @@ func TestRun_ListenError(t *testing.T) {
 	}
 }
 
-func TestRun_PasswordNotSupplied(t *testing.T) {
+func TesPassword_NotSupplied(t *testing.T) {
 	assert := assert.New(t)
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	password := "password"
 
-	mkClient, closer := testingServer(c, &testLockServer{}, password)
+	mkClient, closer := testingServer(&testLockServer{}, password)
 	defer closer()
 	client, _ := mkClient()
 	_, err := client.TryLock(context.Background(), &pb.TryLockRequest{
@@ -92,16 +87,13 @@ func TestRun_PasswordNotSupplied(t *testing.T) {
 
 }
 
-func TestRun_PasswordWrong(t *testing.T) {
+func TestPassword_Invalid(t *testing.T) {
 	assert := assert.New(t)
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
 	password := "password"
 
 	ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "foo")
 
-	mkClient, closer := testingServer(c, &testLockServer{}, password)
+	mkClient, closer := testingServer(&testLockServer{}, password)
 	defer closer()
 	client, _ := mkClient()
 	_, err := client.TryLock(ctx, &pb.TryLockRequest{
@@ -111,15 +103,12 @@ func TestRun_PasswordWrong(t *testing.T) {
 	assert.Equal(err.Error(), "rpc error: code = Unauthenticated desc = invalid credentials")
 }
 
-func TestRun_Password(t *testing.T) {
+func TestPassword(t *testing.T) {
 	assert := assert.New(t)
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
 	password := "password"
 
 	ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", password)
-	mkClient, closer := testingServer(c, &testLockServer{}, password)
+	mkClient, closer := testingServer(&testLockServer{}, password)
 	defer closer()
 
 	client, _ := mkClient()
@@ -134,21 +123,19 @@ func TestRun_Password(t *testing.T) {
 func TestLock(t *testing.T) {
 	assert := assert.New(t)
 
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	l := &testLockServer{}
-	mkClient, closer := testingServer(c, l, "")
+	mkClient, closer := testingServer(l, "")
 	defer closer()
 
 	client, _ := mkClient()
+	sz := int32(3)
 	wto := int32(33)
 	lto := int32(44)
 	res, err := client.Lock(context.Background(), &pb.LockRequest{
 		Name:               "testlock",
 		WaitTimeoutSeconds: &wto,
 		LockTimeoutSeconds: &lto,
+		Size:               &sz,
 	})
 	assert.Nil(err)
 	assert.True(res.Locked)
@@ -158,22 +145,20 @@ func TestLock(t *testing.T) {
 		name               string
 		lockTimeoutSeconds *int32
 		waitTimeoutSeconds *int32
+		size               *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: &lto,
 		waitTimeoutSeconds: &wto,
+		size:               &sz,
 	}, l.lockCall)
 }
 
-func TestLock_NoTimers(t *testing.T) {
+func TestLock_Bare(t *testing.T) {
 	assert := assert.New(t)
 
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	l := &testLockServer{}
-	mkClient, closer := testingServer(c, l, "")
+	mkClient, closer := testingServer(l, "")
 	defer closer()
 
 	client, _ := mkClient()
@@ -188,26 +173,24 @@ func TestLock_NoTimers(t *testing.T) {
 		name               string
 		lockTimeoutSeconds *int32
 		waitTimeoutSeconds *int32
+		size               *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: nil,
 		waitTimeoutSeconds: nil,
+		size:               nil,
 	}, l.lockCall)
 }
 
 func TestLock_Error(t *testing.T) {
 	assert := assert.New(t)
 
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	l := &testLockServer{
 		lockResponse: &lockResponse{
 			err: server.ErrEmptyName,
 		},
 	}
-	mkClient, closer := testingServer(c, l, "")
+	mkClient, closer := testingServer(l, "")
 	defer closer()
 
 	client, _ := mkClient()
@@ -225,29 +208,29 @@ func TestLock_Error(t *testing.T) {
 		name               string
 		lockTimeoutSeconds *int32
 		waitTimeoutSeconds *int32
+		size               *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: nil,
 		waitTimeoutSeconds: nil,
+		size:               nil,
 	}, l.lockCall)
 }
 
 func TestTryLock(t *testing.T) {
 	assert := assert.New(t)
 
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	l := &testLockServer{}
-	mkClient, closer := testingServer(c, l, "")
+	mkClient, closer := testingServer(l, "")
 	defer closer()
 
 	client, _ := mkClient()
+	sz := int32(3)
 	lto := int32(44)
 	res, err := client.TryLock(context.Background(), &pb.TryLockRequest{
 		Name:               "testlock",
 		LockTimeoutSeconds: &lto,
+		Size:               &sz,
 	})
 	assert.Nil(err)
 	assert.True(res.Locked)
@@ -256,21 +239,19 @@ func TestTryLock(t *testing.T) {
 	assert.Equal(&struct {
 		name               string
 		lockTimeoutSeconds *int32
+		size               *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: &lto,
+		size:               &sz,
 	}, l.tryLockCall)
 }
 
-func TestTryLock_NoTimers(t *testing.T) {
+func TestTryLock_Bare(t *testing.T) {
 	assert := assert.New(t)
 
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	l := &testLockServer{}
-	mkClient, closer := testingServer(c, l, "")
+	mkClient, closer := testingServer(l, "")
 	defer closer()
 
 	client, _ := mkClient()
@@ -284,25 +265,23 @@ func TestTryLock_NoTimers(t *testing.T) {
 	assert.Equal(&struct {
 		name               string
 		lockTimeoutSeconds *int32
+		size               *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: nil,
+		size:               nil,
 	}, l.tryLockCall)
 }
 
 func TestTryLock_Error(t *testing.T) {
 	assert := assert.New(t)
 
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	l := &testLockServer{
 		tryLockResponse: &lockResponse{
 			err: server.ErrEmptyName,
 		},
 	}
-	mkClient, closer := testingServer(c, l, "")
+	mkClient, closer := testingServer(l, "")
 	defer closer()
 
 	client, _ := mkClient()
@@ -319,21 +298,19 @@ func TestTryLock_Error(t *testing.T) {
 	assert.Equal(&struct {
 		name               string
 		lockTimeoutSeconds *int32
+		size               *int32
 	}{
 		name:               "testlock",
 		lockTimeoutSeconds: nil,
+		size:               nil,
 	}, l.tryLockCall)
 }
 
 func TestRefreshLock(t *testing.T) {
 	assert := assert.New(t)
 
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	l := &testLockServer{}
-	mkClient, closer := testingServer(c, l, "")
+	mkClient, closer := testingServer(l, "")
 	defer closer()
 
 	client, _ := mkClient()
@@ -360,16 +337,12 @@ func TestRefreshLock(t *testing.T) {
 func TestRefreshLock_Error(t *testing.T) {
 	assert := assert.New(t)
 
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	l := &testLockServer{
 		refreshLockResponse: &lockResponse{
 			err: server.ErrEmptyName,
 		},
 	}
-	mkClient, closer := testingServer(c, l, "")
+	mkClient, closer := testingServer(l, "")
 	defer closer()
 
 	client, _ := mkClient()
@@ -399,12 +372,8 @@ func TestRefreshLock_Error(t *testing.T) {
 func TestUnlock(t *testing.T) {
 	assert := assert.New(t)
 
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	l := &testLockServer{}
-	mkClient, closer := testingServer(c, l, "")
+	mkClient, closer := testingServer(l, "")
 	defer closer()
 
 	client, _ := mkClient()
@@ -428,10 +397,6 @@ func TestUnlock(t *testing.T) {
 func TestUnlock_Error(t *testing.T) {
 	assert := assert.New(t)
 
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	l := &testLockServer{
 		unlockResponse: &struct {
 			unlocked bool
@@ -441,7 +406,7 @@ func TestUnlock_Error(t *testing.T) {
 			err:      server.ErrEmptyName,
 		},
 	}
-	mkClient, closer := testingServer(c, l, "")
+	mkClient, closer := testingServer(l, "")
 	defer closer()
 
 	client, _ := mkClient()
@@ -467,9 +432,6 @@ func TestUnlock_Error(t *testing.T) {
 
 func TestErrorsToProtoErrors(t *testing.T) {
 	assert := assert.New(t)
-	conf := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
 	cases := map[string]struct {
 		err  error
 		code pb.ErrorCode
@@ -498,6 +460,14 @@ func TestErrorsToProtoErrors(t *testing.T) {
 			err:  timer.ErrTimerDoesNotExist,
 			code: pb.ErrorCode_LockDoesNotExistOrInvalidKey,
 		},
+		"lock size mismatch": {
+			err:  lock.ErrLockSizeMismatch,
+			code: pb.ErrorCode_LockSizeMismatch,
+		},
+		"invalid lock size": {
+			err:  lock.ErrInvalidLockSize,
+			code: pb.ErrorCode_InvalidLockSize,
+		},
 	}
 
 	for name, c := range cases {
@@ -523,7 +493,7 @@ func TestErrorsToProtoErrors(t *testing.T) {
 			},
 		}
 
-		mkClient, closer := testingServer(conf, l, "")
+		mkClient, closer := testingServer(l, "")
 		defer closer()
 
 		client, _ := mkClient()
@@ -573,12 +543,8 @@ func TestErrorsToProtoErrors(t *testing.T) {
 func TestSession(t *testing.T) {
 	assert := assert.New(t)
 
-	c := config.Configure[GrpcConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix},
-	)
-
 	l := &testLockServer{}
-	mkClient, closer := testingServer(c, l, "")
+	mkClient, closer := testingServer(l, "")
 	defer closer()
 
 	client, clCloser := mkClient()
@@ -593,8 +559,7 @@ func TestSession(t *testing.T) {
 		metadata: map[string]interface{}{"remote_address": "bufconn"},
 	}, l.createSessionCall)
 
-	// Wait for context Done to propagate
-	time.Sleep(1 * time.Second)
+	<-l.sessionDestroyed
 	assert.Equal(&struct {
 		sessionId string
 	}{
@@ -624,10 +589,12 @@ type testLockServer struct {
 		name               string
 		lockTimeoutSeconds *int32
 		waitTimeoutSeconds *int32
+		size               *int32
 	}
 	tryLockCall *struct {
 		name               string
 		lockTimeoutSeconds *int32
+		size               *int32
 	}
 	unlockCall *struct {
 		name string
@@ -645,17 +612,20 @@ type testLockServer struct {
 	destroySessionCall *struct {
 		sessionId string
 	}
+	sessionDestroyed chan struct{}
 }
 
-func (t *testLockServer) Lock(ctx context.Context, name string, lockTimeoutSeconds *int32, waitTimeoutSeconds *int32) (*server.Lock, error) {
+func (t *testLockServer) Lock(ctx context.Context, name string, size *int32, lockTimeoutSeconds *int32, waitTimeoutSeconds *int32) (*server.Lock, error) {
 	t.lockCall = &struct {
 		name               string
 		lockTimeoutSeconds *int32
 		waitTimeoutSeconds *int32
+		size               *int32
 	}{
 		name:               name,
 		lockTimeoutSeconds: lockTimeoutSeconds,
 		waitTimeoutSeconds: waitTimeoutSeconds,
+		size:               size,
 	}
 	if t.lockResponse != nil {
 		return t.lockResponse.lock, t.lockResponse.err
@@ -667,13 +637,15 @@ func (t *testLockServer) Lock(ctx context.Context, name string, lockTimeoutSecon
 	}, nil
 }
 
-func (t *testLockServer) TryLock(ctx context.Context, name string, lockTimeoutSeconds *int32) (*server.Lock, error) {
+func (t *testLockServer) TryLock(ctx context.Context, name string, size *int32, lockTimeoutSeconds *int32) (*server.Lock, error) {
 	t.tryLockCall = &struct {
 		name               string
 		lockTimeoutSeconds *int32
+		size               *int32
 	}{
 		name:               name,
 		lockTimeoutSeconds: lockTimeoutSeconds,
+		size:               size,
 	}
 	if t.tryLockResponse != nil {
 		return t.tryLockResponse.lock, t.tryLockResponse.err
@@ -726,6 +698,8 @@ func (t *testLockServer) DestroySession(ctx context.Context) string {
 	}{
 		sessionId: sessionId,
 	}
+
+	close(t.sessionDestroyed)
 	return sessionId
 }
 
@@ -736,11 +710,12 @@ func (t *testLockServer) CreateSession(ctx context.Context, metadata map[string]
 	}{
 		metadata: metadata,
 	}
+	t.sessionDestroyed = make(chan struct{})
 	return sessionId, context.WithValue(ctx, sessIdKey, sessionId)
 
 }
 
-func testingServer(conf *GrpcConfig, lsrv *testLockServer, password string) (clientFactory func() (pb.LDLMClient, func()), closer func()) {
+func testingServer(lsrv *testLockServer, password string) (clientFactory func() (pb.LDLMClient, func()), closer func()) {
 	// from https://medium.com/@3n0ugh/how-to-test-grpc-servers-in-go-ba90fe365a18
 	buffer := 101024 * 1024
 	lis := bufconn.Listen(buffer)
@@ -775,7 +750,7 @@ func testingServer(conf *GrpcConfig, lsrv *testLockServer, password string) (cli
 
 	// Factory function for generating clients connected to this server instance
 	clientFactory = func() (pb.LDLMClient, func()) {
-		conn, err := grpc.DialContext(context.Background(), "",
+		conn, err := grpc.NewClient("localhost:0",
 			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 				return lis.Dial()
 			}), grpc.WithTransportCredentials(insecure.NewCredentials()))

@@ -48,12 +48,12 @@ func TestAdd(t *testing.T) {
 	conf := new(session.SessionConfig)
 	m := session.NewManager(conf)
 
-	m.AddLock("foo", "bar", "a")
-	m.AddLock("you", "there", "b")
+	m.AddLock("foo", "bar", 1, "a")
+	m.AddLock("you", "there", 1, "b")
 
 	assert.Equal(m.Locks(), map[string][]cl.Lock{
-		"a": {cl.New("foo", "bar")},
-		"b": {cl.New("you", "there")},
+		"a": {cl.New("foo", "bar", 1)},
+		"b": {cl.New("you", "there", 1)},
 	})
 }
 
@@ -62,18 +62,18 @@ func TestRemove(t *testing.T) {
 	conf := new(session.SessionConfig)
 	m := session.NewManager(conf)
 
-	m.AddLock("foo", "bar", "a")
-	m.AddLock("you", "there", "b")
+	m.AddLock("foo", "bar", 1, "a")
+	m.AddLock("you", "there", 1, "b")
 
 	assert.Equal(m.Locks(), map[string][]cl.Lock{
-		"a": {cl.New("foo", "bar")},
-		"b": {cl.New("you", "there")},
+		"a": {cl.New("foo", "bar", 1)},
+		"b": {cl.New("you", "there", 1)},
 	})
 
-	m.RemoveLock("foo", "a")
+	m.RemoveLock("foo", "bar", "a")
 
 	assert.Equal(m.Locks(), map[string][]cl.Lock{
-		"b": {cl.New("you", "there")},
+		"b": {cl.New("you", "there", 1)},
 		"a": {},
 	})
 }
@@ -83,19 +83,19 @@ func TestRemove_NotExist(t *testing.T) {
 	conf := new(session.SessionConfig)
 	m := session.NewManager(conf)
 
-	m.AddLock("foo", "bar", "a")
-	m.AddLock("you", "there", "b")
+	m.AddLock("foo", "bar", 1, "a")
+	m.AddLock("you", "there", 1, "b")
 
 	assert.Equal(m.Locks(), map[string][]cl.Lock{
-		"a": {cl.New("foo", "bar")},
-		"b": {cl.New("you", "there")},
+		"a": {cl.New("foo", "bar", 1)},
+		"b": {cl.New("you", "there", 1)},
 	})
 
-	m.RemoveLock("asdf", "a")
+	m.RemoveLock("asdf", "foo", "a")
 
 	assert.Equal(m.Locks(), map[string][]cl.Lock{
-		"a": {cl.New("foo", "bar")},
-		"b": {cl.New("you", "there")},
+		"a": {cl.New("foo", "bar", 1)},
+		"b": {cl.New("you", "there", 1)},
 	})
 }
 
@@ -116,30 +116,30 @@ func TestDestroySession(t *testing.T) {
 	conf := new(session.SessionConfig)
 	m := session.NewManager(conf)
 
-	m.AddLock("foo", "bar", "a")
-	m.AddLock("you", "there", "b")
-	m.AddLock("a", "baz", "c")
-	m.AddLock("b", "baz", "c")
-	m.AddLock("c", "baz", "c")
-	m.AddLock("you", "here", "d")
+	m.AddLock("foo", "bar", 1, "a")
+	m.AddLock("you", "there", 1, "b")
+	m.AddLock("a", "baz", 1, "c")
+	m.AddLock("b", "baz", 1, "c")
+	m.AddLock("c", "baz", 1, "c")
+	m.AddLock("you", "here", 1, "d")
 
 	assert.Equal(m.Locks(), map[string][]cl.Lock{
-		"a": {cl.New("foo", "bar")},
-		"b": {cl.New("you", "there")},
-		"d": {cl.New("you", "here")},
-		"c": {cl.New("a", "baz"), cl.New("b", "baz"), cl.New("c", "baz")},
+		"a": {cl.New("foo", "bar", 1)},
+		"b": {cl.New("you", "there", 1)},
+		"d": {cl.New("you", "here", 1)},
+		"c": {cl.New("a", "baz", 1), cl.New("b", "baz", 1), cl.New("c", "baz", 1)},
 	})
 
 	assert.Equal(m.DestroySession("c"), []cl.Lock{
-		cl.New("a", "baz"),
-		cl.New("b", "baz"),
-		cl.New("c", "baz"),
+		cl.New("a", "baz", 1),
+		cl.New("b", "baz", 1),
+		cl.New("c", "baz", 1),
 	})
 
 	assert.Equal(m.Locks(), map[string][]cl.Lock{
-		"a": {cl.New("foo", "bar")},
-		"b": {cl.New("you", "there")},
-		"d": {cl.New("you", "here")},
+		"a": {cl.New("foo", "bar", 1)},
+		"b": {cl.New("you", "there", 1)},
+		"d": {cl.New("you", "here", 1)},
 	})
 
 }
@@ -152,26 +152,26 @@ func TestSave(t *testing.T) {
 	rwr := new(sessionStore)
 	m.SetStore(rwr)
 
-	m.AddLock("foo", "bar", "a")
-	m.AddLock("you", "there", "b")
-	m.AddLock("a", "baz", "c")
-	m.AddLock("b", "baz", "c")
-	m.AddLock("c", "baz", "c")
-	m.AddLock("you", "here", "d")
+	m.AddLock("foo", "bar", 1, "a")
+	m.AddLock("you", "there", 1, "b")
+	m.AddLock("a", "baz", 1, "c")
+	m.AddLock("b", "baz", 1, "c")
+	m.AddLock("c", "baz", 1, "c")
+	m.AddLock("you", "here", 1, "d")
 
 	assert.Equal(m.Locks(), map[string][]cl.Lock{
-		"a": {cl.New("foo", "bar")},
-		"b": {cl.New("you", "there")},
-		"d": {cl.New("you", "here")},
-		"c": {cl.New("a", "baz"), cl.New("b", "baz"), cl.New("c", "baz")},
+		"a": {cl.New("foo", "bar", 1)},
+		"b": {cl.New("you", "there", 1)},
+		"d": {cl.New("you", "here", 1)},
+		"c": {cl.New("a", "baz", 1), cl.New("b", "baz", 1), cl.New("c", "baz", 1)},
 	})
 
 	assert.Nil(m.Save())
 	assert.Equal(rwr.Written, map[string][]cl.Lock{
-		"a": {cl.New("foo", "bar")},
-		"b": {cl.New("you", "there")},
-		"d": {cl.New("you", "here")},
-		"c": {cl.New("a", "baz"), cl.New("b", "baz"), cl.New("c", "baz")},
+		"a": {cl.New("foo", "bar", 1)},
+		"b": {cl.New("you", "there", 1)},
+		"d": {cl.New("you", "here", 1)},
+		"c": {cl.New("a", "baz", 1), cl.New("b", "baz", 1), cl.New("c", "baz", 1)},
 	})
 }
 
@@ -182,10 +182,10 @@ func TestLoad(t *testing.T) {
 
 	rwr := new(sessionStore)
 	rwr.ToRead = map[string][]cl.Lock{
-		"bar":   {cl.New("foo", "bar")},
-		"there": {cl.New("you", "there")},
-		"here":  {cl.New("you", "here")},
-		"baz":   {cl.New("a", "baz"), cl.New("b", "baz"), cl.New("c", "baz")},
+		"bar":   {cl.New("foo", "bar", 1)},
+		"there": {cl.New("you", "there", 1)},
+		"here":  {cl.New("you", "here", 1)},
+		"baz":   {cl.New("a", "baz", 1), cl.New("b", "baz", 1), cl.New("c", "baz", 1)},
 	}
 	m.SetStore(rwr)
 
@@ -195,10 +195,10 @@ func TestLoad(t *testing.T) {
 	assert.Nil(err)
 
 	assert.Equal(locks, map[string][]cl.Lock{
-		"bar":   {cl.New("foo", "bar")},
-		"there": {cl.New("you", "there")},
-		"here":  {cl.New("you", "here")},
-		"baz":   {cl.New("a", "baz"), cl.New("b", "baz"), cl.New("c", "baz")},
+		"bar":   {cl.New("foo", "bar", 1)},
+		"there": {cl.New("you", "there", 1)},
+		"here":  {cl.New("you", "here", 1)},
+		"baz":   {cl.New("a", "baz", 1), cl.New("b", "baz", 1), cl.New("c", "baz", 1)},
 	})
 
 	lockMapLocks := m.Locks()

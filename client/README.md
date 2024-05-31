@@ -44,7 +44,7 @@ The client also takes an arbitrary number of gRPC [dial options](https://pkg.go.
 
 Locks in an LDLM server generally live until the client unlocks the lock or disconnects. If a client dies while holding a lock, the disconnection is detected and handled in LDLM by releasing the lock.
 
-Depending on your LDLM server configuration, this feature may be disabled and `lockTimeoutSeconds` would be used to specify the maximum amount of time a lock can remain locked without being refreshed. The client will take care of refreshing locks in the background for you unless you've specified `NoAutoRefresh` in the client's options. Otherwise, you must periodically call `RefreshLock(...)` yourself &lt; the lock timeout interval.
+Depending on your LDLM server configuration, this feature may be disabled and `LockTimeoutSeconds` would be used to specify the maximum amount of time a lock can remain locked without being refreshed. The client will take care of refreshing locks in the background for you unless you've specified `NoAutoRefresh` in the client's options. Otherwise, you must periodically call `RefreshLock(...)` yourself &lt; the lock timeout interval.
 
 To `Unlock()` or refresh a lock, you must use the lock key that was issued from the lock request's response. Using a Lock object's `Unlock()` method takes care of this for you. This is exemplified further in the following sections.
 
@@ -59,18 +59,27 @@ To `Unlock()` or refresh a lock, you must use the lock key that was issued from 
 | `Locked` | `bool` | whether the was acquired or not |
 | `Unlock()` | `func() (bool, error)` | method to unlock the lock |
 
+### Lock Options
+
+Lock operations take a `*LockOptions` object that has the following properties:
+
+| Name | Type | Description |
+| :--- | :--- | :--- |
+| `LockTimeoutSeconds` | `int32` | The lock timeout. Leave unspecified or set to `0` for no timeout. |
+| `WaitTimeoutSeconds` | `int32` | Maximum amount of time to wait to acquire a lock. Leave unspecified or use `0` to wait indefinitely. |
+| `Size` | `int32` | The size of the lock. Unspecified will result in a lock with a size of `1`.|
+
 
 ### Lock
 
-`Lock()` attempts to acquire a lock in LDLM. It will block until the lock is acquired or until `waitTimeoutSeconds` has elapsed (if specified).  If you have set `waitTimeoutSeconds` and the lock could not be acquired in that time, the returned error will be `ErrLockWaitTimeout`.
+`Lock()` attempts to acquire a lock in LDLM. It will block until the lock is acquired or until `WaitTimeoutSeconds` has elapsed (if specified).  If you have set `WaitTimeoutSeconds` and the lock could not be acquired in that time, the returned error will be `ErrLockWaitTimeout`.
 
 `Lock()` accepts the following arguments.
 
-| Name | Type | Description |
-| :--- |:--- | :--- |
-| `name` | `string` | Name of the lock to acquire |
-| `lockTimeoutSeconds` | `int32` | The lock timeout. Use `0` for no timeout.
-| `waitTimeoutSeconds` | `int32` | Maximum amount of time to wait to acquire a lock. Use `0` to wait indefinitely. |
+| Type | Description |
+|:--- | :--- |
+| `string` | Name of the lock to acquire |
+| `*LockOptions` | Options for the lock |
 
 It returns a `*Lock` and an `error`.
 
@@ -78,7 +87,7 @@ It returns a `*Lock` and an `error`.
 
 Simple lock
 ```go
-lock, err = c.Lock("my-task", 0, 0)
+lock, err = c.Lock("my-task", nil)
 if err != nill {
     // handle err
 }
@@ -90,7 +99,7 @@ defer lock.Unlock()
 
 Wait timeout
 ```go
-lock, err = c.Lock("my-task", 0, 30)
+lock, err = c.Lock("my-task", &client.LockOptions{WaitTimeoutSeconds: 5})
 if err != nill {
     // handle err
     if !errors.Is(err, client.ErrLockWaitTimeout) {
@@ -105,19 +114,18 @@ defer lock.Unlock()
 
 `TryLock()` accepts the folowing arguments.
 
-| Name | Type | Description |
-| :--- | :--- | :--- |
-| `name` | `string` | Name of the lock to acquire |
-| `lockTimeoutSeconds` | `int32` | The lock timeout. Use `0` for no timeout.
+| Type | Description |
+| :--- | :--- |
+| `string` | Name of the lock to acquire |
+| `*LockOptions` | Options for the lock |
 
 It returns a `*Lock` and an `error`.
-
 
 #### Examples
 
 Simple try lock
 ```go
-lock, err = c.TryLock("my-task", 0)
+lock, err = c.TryLock("my-task", nil)
 if err != nill {
     // handle err
 }
@@ -137,10 +145,10 @@ defer lock.Unlock()
 
 `Unlock()` accepts the following arguments.
 
-| Name | Type | Description |
-| :--- | :--- | :--- |
-| `name` | `string` | Name of the lock |
-| `key` | `string` | Key for the lock |
+|  Type | Description |
+| :--- | :--- |
+| `string` | Name of the lock |
+| `string` | Key for the lock |
 
 It returns a `bool` indicating whether or not the lock was unlocked and an `error`.
 
@@ -151,21 +159,23 @@ unlocked, err := c.Unlock("my_task", lock.key)
 ```
 
 ### Refresh Lock
-As explained in [Basic Concepts](#basic-concepts), you may specify a lock timeout using a `lockTimeoutSeconds` argument to any of the `*Lock*()` methods. When you do this, the client will refresh the lock in the background without you having to do anything. If, for some reason, you want to disable auto refresh (`NoAutoRefresh=true` in client Config), you will have to refresh the lock before it times out using the `RefreshLock()` method.
+As explained in [Basic Concepts](#basic-concepts), you may specify a lock timeout using a `LockTimeoutSeconds` argument to any of the `*Lock*()` methods. When you do this, the client will refresh the lock in the background without you having to do anything. If, for some reason, you want to disable auto refresh (`NoAutoRefresh=true` in client Config), you will have to refresh the lock before it times out using the `RefreshLock()` method.
 
 It takes the following arguments
 
-| Name | Type | Description |
-| :--- | :--- | :--- |
-| `name` | `string` | Name of the lock to acquire |
-| `key` | `string` | The key for the lock |
-| `lockTimeoutSeconds` | `int32` | The new lock expiration timeout (or the same timeout if you'd like) |
+| Type | Description |
+| :--- | :--- |
+| `string` | Name of the lock to acquire |
+| `string` | The key for the lock |
+| `int32` | The new lock expiration timeout (or the same timeout if you'd like) |
 
 It returns a `*Lock` and an `error`.
 
 #### Examples
 ```go
-lock, err = c.Lock("task1-lock", 300, 0)
+lock, err = c.Lock("task1-lock", &client.LockOptions{
+    LockTimeoutSeconds: 300,
+})
 
 
 if err != nil {

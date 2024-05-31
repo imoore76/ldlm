@@ -29,21 +29,36 @@ var (
 	ErrLockNotLocked  = errors.New("lock is not locked")
 )
 
-// Lock represents a lock
 type Lock struct {
-	key    string
-	keyMtx chan struct{}
+	size   int32
+	keys   []string
 	mtx    chan struct{}
+	keyMtx chan struct{}
 	ctx    context.Context
 }
 
-// NewLock initializes and returns a new Lock instance.
-func NewLock(ctx context.Context) *Lock {
+func NewLock(ctx context.Context, n int32) *Lock {
 	return &Lock{
+		size:   n,
+		keys:   []string{},
 		keyMtx: make(chan struct{}, 1),
-		mtx:    make(chan struct{}, 1),
+		mtx:    make(chan struct{}, n),
 		ctx:    ctx,
 	}
+}
+
+// Size returns the lock's size
+func (l *Lock) Size() int32 {
+	return l.size
+}
+
+// Keys returns the lock's keys
+func (l *Lock) Keys() []string {
+	l.lockKey()
+	defer l.unlockKey()
+	keysCopy := make([]string, len(l.keys))
+	copy(keysCopy, l.keys)
+	return keysCopy
 }
 
 // lockKey locks the lock's key for inspection / setting to avoid race
@@ -72,8 +87,8 @@ func (l *Lock) Lock(key string, ctx context.Context) chan interface{} {
 		select {
 		case l.mtx <- struct{}{}:
 			l.lockKey()
-			l.key = key
-			l.unlockKey()
+			defer l.unlockKey()
+			l.keys = append(l.keys, key)
 			rChan <- struct{}{}
 		case <-ctx.Done(): // Cancelled or timed out
 			rChan <- context.Cause(ctx)
@@ -95,10 +110,7 @@ func (l *Lock) TryLock(key string) (bool, error) {
 	case l.mtx <- struct{}{}:
 		l.lockKey()
 		defer l.unlockKey()
-		if l.key != "" {
-			return false, nil
-		}
-		l.key = key
+		l.keys = append(l.keys, key)
 		return true, nil
 	default:
 		return false, nil
@@ -106,7 +118,7 @@ func (l *Lock) TryLock(key string) (bool, error) {
 }
 
 // Unlock surprisingly unlocks the lock
-func (l *Lock) Unlock(k string) (bool, error) {
+func (l *Lock) Unlock(key string) (bool, error) {
 	// Return context error if it exists
 	if l.ctx.Err() != nil {
 		return false, l.ctx.Err()
@@ -115,15 +127,19 @@ func (l *Lock) Unlock(k string) (bool, error) {
 	l.lockKey()
 	defer l.unlockKey()
 
-	if l.key == "" {
-		return false, ErrLockNotLocked
+	found := false
+	newKeys := []string{}
+	for i := 0; i < len(l.keys); i++ {
+		if l.keys[i] == key && !found {
+			found = true
+		} else {
+			newKeys = append(newKeys, l.keys[i])
+		}
 	}
-
-	if l.key == k {
-		l.key = ""
-		<-l.mtx
-		return true, nil
+	if !found {
+		return false, ErrInvalidLockKey
 	}
-
-	return false, ErrInvalidLockKey
+	l.keys = newKeys
+	<-l.mtx
+	return true, nil
 }

@@ -83,7 +83,7 @@ func (i *IPC) ListLocks(_ ListLocksRequest, locks *ListLocksResponse) error {
 	log.Info("Handling IPC ListLocks request")
 
 	for _, lk := range i.lckSrv.Locks() {
-		*locks = append(*locks, fmt.Sprintf("{Name: %s, Key: %s}", lk.Name(), lk.Key()))
+		*locks = append(*locks, fmt.Sprintf("{Name: %s, Key: %s, Size: %d}", lk.Name(), lk.Key(), lk.Size()))
 	}
 	return nil
 }

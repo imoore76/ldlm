@@ -47,6 +47,8 @@ var (
 	ErrLockWaitTimeout              = server.ErrLockWaitTimeout
 	ErrLockNotLocked                = lock.ErrLockNotLocked
 	ErrLockDoesNotExistOrInvalidKey = server.ErrLockDoesNotExistOrInvalidKey
+	ErrInvalidLockSize              = lock.ErrInvalidLockSize
+	ErrLockSizeMismatch             = lock.ErrLockSizeMismatch
 )
 
 var (
@@ -68,12 +70,19 @@ type Config struct {
 	MaxRetries    int    // maximum number of retries on network error or server unreachable
 }
 
-// Simple lock struct returned to clients
+// Simple lock struct returned to clients.
 type Lock struct {
 	client *client
 	Name   string
 	Key    string
 	Locked bool
+}
+
+// Lock options struct.
+type LockOptions struct {
+	WaitTimeoutSeconds int32
+	LockTimeoutSeconds int32
+	Size               int32
 }
 
 // Unlock attempts to release the lock.
@@ -120,7 +129,7 @@ type client struct {
 func New(ctx context.Context, conf Config, opts ...grpc.DialOption) (*client, error) {
 	creds := insecure.NewCredentials()
 	if conf.UseTls || conf.TlsCert != "" {
-		tlsc := &tls.Config{
+		tlsC := &tls.Config{
 			ServerName:         strings.Split(conf.Address, ":")[0],
 			InsecureSkipVerify: conf.SkipVerify,
 		}
@@ -129,7 +138,7 @@ func New(ctx context.Context, conf Config, opts ...grpc.DialOption) (*client, er
 			if err != nil {
 				return nil, fmt.Errorf("error loading TlsCert and TlsKey: %w", err)
 			}
-			tlsc.Certificates = []tls.Certificate{clientCert}
+			tlsC.Certificates = []tls.Certificate{clientCert}
 		}
 		if conf.CAFile != "" {
 			if cacert, err := os.ReadFile(conf.CAFile); err != nil {
@@ -139,14 +148,14 @@ func New(ctx context.Context, conf Config, opts ...grpc.DialOption) (*client, er
 				if !certPool.AppendCertsFromPEM(cacert) {
 					return nil, errors.New("unknown error adding CA certificate to x509.CertPool")
 				}
-				tlsc.RootCAs = certPool
+				tlsC.RootCAs = certPool
 			}
 		}
-		creds = credentials.NewTLS(tlsc)
+		creds = credentials.NewTLS(tlsC)
 	}
 
 	opts = append(opts, grpc.WithTransportCredentials(creds))
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		conf.Address,
 		opts...,
 	)
@@ -172,25 +181,29 @@ func New(ctx context.Context, conf Config, opts ...grpc.DialOption) (*client, er
 //
 // Parameters:
 // - name: The name of the lock to acquire.
-// - lockTimeoutSeconds: The duration the lock will be held in seconds. If 0, there is no lock timeout.
-// - waitTimeoutSeconds: The maximum time to wait for the lock in seconds. If 0, there is no wait timeout.
+// - LockOptions: The LockOptions struct containing the lock options.
 //
 // Returns:
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock acquisition fails.
-func (c *client) Lock(name string, lockTimeoutSeconds int32, waitTimeoutSeconds int32) (*Lock, error) {
+func (c *client) Lock(name string, o *LockOptions) (*Lock, error) {
+	if o == nil {
+		o = &LockOptions{}
+	}
+
 	req := &pb.LockRequest{
 		Name: name,
 	}
-	if waitTimeoutSeconds > 0 {
-		wts := int32(waitTimeoutSeconds)
-		req.WaitTimeoutSeconds = &wts
+	if o.WaitTimeoutSeconds > 0 {
+		req.WaitTimeoutSeconds = &o.WaitTimeoutSeconds
 	}
-	if lockTimeoutSeconds > 0 {
-		lts := int32(lockTimeoutSeconds)
-		req.LockTimeoutSeconds = &lts
+	if o.LockTimeoutSeconds > 0 {
+		req.LockTimeoutSeconds = &o.LockTimeoutSeconds
 	}
-	r, err := rpcWithRetry(
+	if o.Size > 0 {
+		req.Size = &o.Size
+	}
+	resp, err := rpcWithRetry(
 		c.maxRetries,
 		func() (*pb.LockResponse, error) {
 			return c.pbc.Lock(c.ctx, req)
@@ -200,10 +213,15 @@ func (c *client) Lock(name string, lockTimeoutSeconds int32, waitTimeoutSeconds 
 		return nil, err
 	}
 
-	if r.Locked {
-		c.maybeCreateRefresher(r, lockTimeoutSeconds)
+	if resp.Locked {
+		c.maybeCreateRefresher(resp, o.LockTimeoutSeconds)
 	}
-	return &Lock{Name: name, Key: r.Key, Locked: r.Locked, client: c}, rpcErrorToError(r.Error)
+	return &Lock{
+		Name:   resp.Name,
+		Key:    resp.Key,
+		Locked: resp.Locked,
+		client: c,
+	}, rpcErrorToError(resp.Error)
 
 }
 
@@ -211,29 +229,43 @@ func (c *client) Lock(name string, lockTimeoutSeconds int32, waitTimeoutSeconds 
 //
 // Parameters:
 // - name: The name of the lock to acquire.
-// - lockTimeoutSeconds: The duration the lock will be held in seconds. If 0, there is no lock timeout.
+// - LockOptions: The LockOptions struct containing the lock options.
 //
 // Returns:
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock acquisition fails.
-func (c *client) TryLock(name string, lockTimeoutSeconds int32) (*Lock, error) {
+func (c *client) TryLock(name string, o *LockOptions) (*Lock, error) {
+	if o == nil {
+		o = &LockOptions{}
+	}
+
+	if o.WaitTimeoutSeconds > 0 {
+		return nil, errors.New("wait timeout not supported for TryLock")
+	}
 	req := &pb.TryLockRequest{
 		Name: name,
 	}
-	if lockTimeoutSeconds > 0 {
-		lts := int32(lockTimeoutSeconds)
-		req.LockTimeoutSeconds = &lts
+	if o.LockTimeoutSeconds > 0 {
+		req.LockTimeoutSeconds = &o.LockTimeoutSeconds
 	}
-	r, err := rpcWithRetry(c.maxRetries, func() (*pb.LockResponse, error) {
+	if o.Size > 0 {
+		req.Size = &o.Size
+	}
+	resp, err := rpcWithRetry(c.maxRetries, func() (*pb.LockResponse, error) {
 		return c.pbc.TryLock(c.ctx, req)
 	})
 	if err != nil {
 		return nil, err
 	}
-	if r.Locked {
-		c.maybeCreateRefresher(r, lockTimeoutSeconds)
+	if resp.Locked {
+		c.maybeCreateRefresher(resp, o.LockTimeoutSeconds)
 	}
-	return &Lock{Name: name, Key: r.Key, Locked: r.Locked, client: c}, rpcErrorToError(r.Error)
+	return &Lock{
+		Name:   resp.Name,
+		Key:    resp.Key,
+		Locked: resp.Locked,
+		client: c,
+	}, rpcErrorToError(resp.Error)
 }
 
 // Unlock attempts to release a lock with the given name and key.
@@ -315,8 +347,8 @@ func (c *client) maybeCreateRefresher(r *pb.LockResponse, lockTimeoutSeconds int
 	}
 
 	// Create and add lock to refresh map
-	rfresh := NewRefresher(c, r.Name, r.Key, lockTimeoutSeconds)
-	if _, loaded := c.refreshMap.LoadOrStore(r.Name, rfresh); loaded {
+	rFresher := NewRefresher(c, r.Name, r.Key, lockTimeoutSeconds)
+	if _, loaded := c.refreshMap.LoadOrStore(r.Name, rFresher); loaded {
 		panic("client out of sync - lock already exists in refresh map")
 	}
 }
@@ -347,6 +379,7 @@ type refresher struct {
 	key                string
 	lockTimeoutSeconds int32
 	stop               chan struct{}
+	stopped            chan struct{}
 }
 
 // NewRefresher creates a new refresher instance with the given client, name, key, and lock timeout.
@@ -366,6 +399,7 @@ func NewRefresher(client *client, name string, key string, lockTimeoutSeconds in
 		key:                key,
 		lockTimeoutSeconds: lockTimeoutSeconds,
 		stop:               make(chan struct{}, 1),
+		stopped:            make(chan struct{}),
 	}
 	r.Start()
 	return r
@@ -391,11 +425,13 @@ func (r *refresher) Start() {
 				if !t.Stop() {
 					<-t.C
 				}
+				r.stopped <- struct{}{}
 				return
 			case <-r.stop:
 				if !t.Stop() {
 					<-t.C
 				}
+				r.stopped <- struct{}{}
 				return
 			case <-t.C:
 				if _, err := r.client.RefreshLock(r.name, r.key, r.lockTimeoutSeconds); err != nil {
@@ -412,6 +448,8 @@ func (r *refresher) Start() {
 // No return values.
 func (r *refresher) Stop() {
 	close(r.stop)
+	<-r.stopped
+	close(r.stopped)
 }
 
 // rpcErrorToError converts an RPC error to a standard error.
@@ -427,18 +465,22 @@ func rpcErrorToError(err *pb.Error) error {
 	}
 
 	switch err.Code {
-	case 0:
+	case pb.ErrorCode_Unknown:
 		return errors.New(err.Message)
-	case 1:
+	case pb.ErrorCode_LockDoesNotExist:
 		return ErrLockDoesNotExist
-	case 2:
+	case pb.ErrorCode_InvalidLockKey:
 		return ErrInvalidLockKey
-	case 3:
+	case pb.ErrorCode_LockWaitTimeout:
 		return ErrLockWaitTimeout
-	case 4:
+	case pb.ErrorCode_NotLocked:
 		return ErrLockNotLocked
-	case 5:
+	case pb.ErrorCode_LockDoesNotExistOrInvalidKey:
 		return ErrLockDoesNotExistOrInvalidKey
+	case pb.ErrorCode_LockSizeMismatch:
+		return ErrLockSizeMismatch
+	case pb.ErrorCode_InvalidLockSize:
+		return ErrInvalidLockSize
 	}
 
 	return fmt.Errorf("unknown RPC error. code: %d message: %s", err.Code, err.Message)

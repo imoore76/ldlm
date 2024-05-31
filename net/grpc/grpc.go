@@ -47,12 +47,12 @@ type Service struct {
 //
 // Parameters:
 // - ctx: the context.Context for the request.
-// - req: the *pb.LockRequest containing the name, lock timeout, and wait timeout.
+// - req: the *pb.LockRequest
 //
 // Returns:
 // - *pb.LockResponse: the response containing the name, key, locked
 func (s *Service) Lock(ctx context.Context, req *pb.LockRequest) (*pb.LockResponse, error) {
-	lk, err := s.LockServer.Lock(ctx, req.Name, req.LockTimeoutSeconds, req.WaitTimeoutSeconds)
+	lk, err := s.LockServer.Lock(ctx, req.Name, req.Size, req.LockTimeoutSeconds, req.WaitTimeoutSeconds)
 	if lk == nil {
 		lk = new(server.Lock)
 	}
@@ -86,13 +86,13 @@ func (s *Service) Unlock(ctx context.Context, req *pb.UnlockRequest) (*pb.Unlock
 //
 // Parameters:
 // - ctx: the context.Context for the request.
-// - req: the *pb.TryLockRequest containing the name and lock timeout.
+// - req: the *pb.TryLockRequest
 //
 // Returns:
 // - *pb.LockResponse: the response containing the name, key, locked status, and error.
 // - error: any error that occurred during the lock attempt.
 func (s *Service) TryLock(ctx context.Context, req *pb.TryLockRequest) (*pb.LockResponse, error) {
-	lk, err := s.LockServer.TryLock(ctx, req.Name, req.LockTimeoutSeconds)
+	lk, err := s.LockServer.TryLock(ctx, req.Name, req.Size, req.LockTimeoutSeconds)
 	if lk == nil {
 		lk = new(server.Lock)
 	}
@@ -268,6 +268,10 @@ func lockErrToProtoBuffErr(e error) *pb.Error {
 		errCode = pb.ErrorCode_NotLocked
 	case timer.ErrTimerDoesNotExist:
 		errCode = pb.ErrorCode_LockDoesNotExistOrInvalidKey
+	case lock.ErrInvalidLockSize:
+		errCode = pb.ErrorCode_InvalidLockSize
+	case lock.ErrLockSizeMismatch:
+		errCode = pb.ErrorCode_LockSizeMismatch
 	}
 	return &pb.Error{
 		Code:    errCode,

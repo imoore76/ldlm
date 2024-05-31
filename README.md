@@ -176,6 +176,29 @@ resp = client.Unlock({
 })
 ```
 
+#### Size
+
+The size of the lock. If specified, the lock will alow `Size` locks to be held at once. This can be useful for resource locking of a particular type. E.g.
+
+```javascript
+// LargeCapacityResource can handle 10 concurrent things
+resp = client1.Lock({
+    Name: "LargeCapacityResource",
+    Size: 10,
+})
+
+// ...
+
+resp = client2.Lock({
+    Name: "LargeCapacityResource",
+    Size: 10,
+})
+
+// ...etc...
+```
+
+The first client that obtains the lock within the uptime of the LDLM server will dictate the lock `Size` (if specified). Subsequent calls to lock the same resource must use the same `Size`.
+
 ## Lock Keys
 
 Lock keys are meant to detect when ldlm and a client are out of sync. They are not cryptographic. They are not secret. They are not meant to deter malicious users from releasing locks.
@@ -197,6 +220,73 @@ If a lock ever becomes deadlocked (this *should* not happen), you can unlock it 
     ldlm-lock unlock <lock name>
 
 ## Examples
+
+### Primary / Secondary Failover
+
+Using a lock, it is relatively simple to implement primary / secondary (or secondaries) failover by running something similar to the following in each server application:
+
+```javascript
+resp = client.Lock({
+    Name: "application-primary",
+})
+
+if (!resp.Locked) {
+    raise Exception("error: lock returned but not locked")
+}
+
+print("Became primary. Performing work...")
+
+// Do work. Lock will be unlocked if this process dies.
+
+```
+
+### Task Locking
+
+In some queue / worker patterns it may be necessary to lock tasks while they are being performed to avoid duplicate work. This can be done using try lock:
+
+```javascript
+
+while (true) {
+    workItem = queue.Get()
+    
+    resp = client.TryLock({
+        Name: workItem.Name,
+    })
+    if (!resp.Locked) {
+        print("Work already in progress")
+        continue
+    }
+
+    // do work
+
+    resp = client.Unlock({
+        Name: resp.Name,
+        Key: resp.Key,
+    })
+}
+```
+
+### Resource Utilization Limiting
+
+In some applications it may be necessary to limit the number of concurrent operations on a resource. This can be done using lock size:
+
+```javascript
+resp = client.Lock({
+    Name: "ElasticSearchSlot",
+    Size: 10,
+})
+
+if (!resp.Locked) {
+    raise Exception("error: lock returned but not locked")
+}
+
+// Do work
+
+resp = client.Unlock({
+    Name: resp.Name,
+    Key: resp.Key,
+})
+```
 
 ### Password
 
