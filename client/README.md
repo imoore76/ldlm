@@ -200,6 +200,66 @@ if _, err := c.RefreshLock("task1-lock", lock.Key, 300); err != nil {
 // do some more work
 
 ```
+## Common Patterns
+
+### Primary / Secondary Failover
+
+Using a lock, it is relatively simple to implement primary / secondary (or secondaries) failover by running something similar to the following in each server application: 
+```go
+lock, err := client.Lock("application-primary")
+
+if err != nil {
+    return err
+}
+ 
+if !lock.Locked {
+    // This should not happen 
+    return errors.New("error: lock returned but not locked")
+}
+
+log.Info("Became primary. Performing work...")
+
+// Do work. Lock will be unlocked if this process dies.
+
+```
+
+### Task Locking
+
+In some queue / worker patterns it may be necessary to lock tasks while they are being performed to avoid duplicate work. This can be done using try lock:
+
+```go
+for {
+    workItem := queue.Get()
+
+    lock := client.TryLock(workItem.Name)
+    if !lock.Locked {
+        log.Infof("Work %s already in progress", workItem.Name)
+        continue
+    }
+    defer lock.Unlock()
+
+    // do work ...
+}
+```
+
+### Resource Utilization Limiting
+
+In some applications it may be necessary to limit the number of concurrent operations on a resource. This can be implemented using lock size:
+
+```go
+// Code in each client to restrict the number of concurrent ElasticSearch operations to 10
+lock := client1.Lock("ElasticSearchSlot", &client.LockOptions{Size: 10})
+
+if !lock.Locked {
+    return errors.New("error: lock returned but not locked")
+}
+
+// Perform ES operation
+
+lock.Unlock()
+```
+
+Remember, the size of a lock is set by the first client that obtains the lock. If subsequent calls to a acquire this lock (from this or other clients) use a different size, a `LockSizeMismatch` error will be thrown.
 
 ## License
 
