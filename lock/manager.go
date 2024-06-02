@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"log/slog"
 	"strings"
 	"sync"
@@ -36,15 +37,6 @@ var (
 	ErrInvalidLockSize  = errors.New("lock size must be greater than 0")
 )
 
-// A ManagedLock is a lock with a some record keeping fields for
-// garbage collection
-type ManagedLock struct {
-	Name         string
-	lastAccessed time.Time
-	deleted      bool
-	*Lock
-}
-
 // LockInfo is a struct that contains only basic information about a lock
 type LockInfo struct {
 	Name         string
@@ -52,6 +44,15 @@ type LockInfo struct {
 	LastAccessed time.Time
 	Locked       bool
 	Size         int // The lock size
+}
+
+// A ManagedLock is a lock with a some record keeping fields for
+// garbage collection
+type ManagedLock struct {
+	Name         string
+	lastAccessed time.Time
+	deleted      bool
+	*Lock
 }
 
 // NewManagedLock returns a managed lock object with the given name
@@ -63,10 +64,15 @@ func NewManagedLock(name string, ctx context.Context, size int32) *ManagedLock {
 	}
 }
 
+// A lock shard is a shard of managed locks
+type lockShard struct {
+	locks map[string]*ManagedLock
+	sync.RWMutex
+}
+
 // A Manager polices access to a group of locks addressable by their names
 type Manager struct {
-	lockCh        chan struct{}
-	locks         map[string]*ManagedLock
+	shards        []*lockShard
 	stopCh        chan struct{}
 	isShutdown    atomic.Bool
 	shutdownMtx   sync.RWMutex
@@ -78,22 +84,30 @@ type Manager struct {
 //
 // Parameters:
 // - ctx context.Context: the context for the Manager
+// - shards uint32: the number of lock shards to use
 // - gcInterval time.Duration: the interval for lock garbage collection
 // - gcMinIdle time.Duration: the minimum time a lock must be idle before being considered for garbage collection
 // Returns:
 // - *Manager: a pointer to the newly created Manager
-func NewManager(gcInterval time.Duration, gcMinIdle time.Duration) (*Manager, func()) {
+func NewManager(shards uint32, gcInterval time.Duration, gcMinIdle time.Duration) (*Manager, func()) {
 
 	ctx, cancelCauseFn := context.WithCancelCause(context.Background())
 
 	m := &Manager{
-		lockCh:        make(chan struct{}, 1),
-		locks:         make(map[string]*ManagedLock),
 		stopCh:        make(chan struct{}),
 		shutdownMtx:   sync.RWMutex{},
 		cancelCauseFn: cancelCauseFn,
 		ctx:           ctx,
 	}
+	if shards == 0 {
+		shards = 1
+	}
+	lockShards := make([]*lockShard, shards)
+	for i := uint32(0); i < shards; i++ {
+		// Create a new lock shard
+		lockShards[i] = &lockShard{locks: make(map[string]*ManagedLock)}
+	}
+	m.shards = lockShards
 
 	// Start lock garbage collection go routine
 	go func() {
@@ -115,14 +129,13 @@ func NewManager(gcInterval time.Duration, gcMinIdle time.Duration) (*Manager, fu
 	return m, m.shutdown
 }
 
-// Lock access to managed locks
-func (m *Manager) lock() {
-	m.lockCh <- struct{}{}
-}
-
-// Unlock access to managed locks
-func (m *Manager) unlock() {
-	<-m.lockCh
+// Returns the correct map shard for the provided lock name
+func (m *Manager) getShard(name string) *lockShard {
+	h := fnv.New32a()
+	if _, err := h.Write([]byte(name)); err != nil {
+		panic("Error writing to fnv hash: " + err.Error())
+	}
+	return m.shards[h.Sum32()%uint32(len(m.shards))]
 }
 
 // shutdown stops the lock garbage collector and clears all locks
@@ -149,10 +162,16 @@ func (m *Manager) getLock(name string, create bool, size int32) (*ManagedLock, e
 		return nil, ErrInvalidLockSize
 	}
 
-	m.lock()
-	defer m.unlock()
+	shard := m.getShard(name)
+	if create {
+		shard.Lock()
+		defer shard.Unlock()
+	} else {
+		shard.RLock()
+		defer shard.RUnlock()
+	}
 
-	l, ok := m.locks[name]
+	l, ok := shard.locks[name]
 	if ok {
 		if create && size != l.Size() {
 			// Different size requested
@@ -168,8 +187,8 @@ func (m *Manager) getLock(name string, create bool, size int32) (*ManagedLock, e
 		return nil, ErrLockDoesNotExist
 	}
 
-	m.locks[name] = NewManagedLock(name, m.ctx, size)
-	return m.locks[name], nil
+	shard.locks[name] = NewManagedLock(name, m.ctx, size)
+	return shard.locks[name], nil
 }
 
 // Lock obtains a lock on the named lock. It blocks until a lock is obtained or is canceled / timed out by context
@@ -237,40 +256,51 @@ func (m *Manager) Unlock(name string, key string) (bool, error) {
 
 // lockGc removes unused locks - unlocked and not accessed since <minIdle>
 func (m *Manager) lockGc(minIdle time.Duration) {
-	m.lock()
-	defer m.unlock()
 
-	slog.Debug("Starting lock garbage collection")
-	numDeleted := 0
-	for _, v := range m.locks {
-		v.lockKey()
-		if len(v.keys) == 0 && time.Since(v.lastAccessed) > minIdle {
-			v.deleted = true
-			close(v.mtx)
-			delete(m.locks, v.Name)
-			numDeleted++
+	for _, shard := range m.shards {
+		shard.Lock()
+
+		slog.Debug("Starting lock garbage collection")
+		numDeleted := 0
+		for _, v := range shard.locks {
+			v.lockKey()
+			if len(v.keys) == 0 && time.Since(v.lastAccessed) > minIdle {
+				v.deleted = true
+				close(v.mtx)
+				delete(shard.locks, v.Name)
+				numDeleted++
+			}
+			v.unlockKey()
 		}
-		v.unlockKey()
+		slog.Info(fmt.Sprintf("Lock garbage collection cleared %d locks", numDeleted))
+
+		shard.Unlock()
+
 	}
-	slog.Info(fmt.Sprintf("Lock garbage collection cleared %d locks", numDeleted))
 }
 
 // Locks returns a list of all locks
 func (m *Manager) Locks() []LockInfo {
-	m.lock()
-	defer m.unlock()
 
-	locks := make([]LockInfo, len(m.locks))
-	idx := 0
-	for name, l := range m.locks {
-		keys := l.Keys()
-		locks[idx] = LockInfo{
-			Name:         name,
-			Keys:         strings.Join(keys, ", "),
-			LastAccessed: l.lastAccessed,
-			Locked:       len(keys) > 0,
-		}
-		idx++
+	locks := []LockInfo{}
+	for _, shard := range m.shards {
+		func() {
+			shard.RLock()
+			defer shard.RUnlock()
+			shardLocks := make([]LockInfo, len(shard.locks))
+			idx := 0
+			for name, l := range shard.locks {
+				keys := l.Keys()
+				shardLocks[idx] = LockInfo{
+					Name:         name,
+					Keys:         strings.Join(keys, ", "),
+					LastAccessed: l.lastAccessed,
+					Locked:       len(keys) > 0,
+				}
+				idx++
+			}
+			locks = append(locks, shardLocks...)
+		}()
 	}
 	return locks
 }

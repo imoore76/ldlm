@@ -28,7 +28,7 @@ import (
 func TestLockGc(t *testing.T) {
 	assert := assert.New(t)
 
-	lm, cancelFunc := lock.NewManager(time.Second, time.Second)
+	lm, cancelFunc := lock.NewManager(2, time.Second, time.Second)
 	defer cancelFunc()
 
 	ch, err := lm.Lock("mylock", "key", 1, context.Background())
@@ -64,7 +64,7 @@ func TestLockGc(t *testing.T) {
 func TestShutdown_ManagerLock(t *testing.T) {
 	assert := assert.New(t)
 
-	lm, cancelFunc := lock.NewManager(time.Hour, time.Hour)
+	lm, cancelFunc := lock.NewManager(2, time.Hour, time.Hour)
 	cancelFunc()
 
 	time.Sleep(time.Second)
@@ -75,7 +75,7 @@ func TestShutdown_ManagerLock(t *testing.T) {
 
 func TestShutdown_ManagerTryLock(t *testing.T) {
 	assert := assert.New(t)
-	lm, cancelFunc := lock.NewManager(time.Hour, time.Hour)
+	lm, cancelFunc := lock.NewManager(2, time.Hour, time.Hour)
 	cancelFunc()
 
 	time.Sleep(time.Second)
@@ -89,7 +89,7 @@ func TestManagedLock(t *testing.T) {
 
 	ctx := context.Background()
 
-	lm, cancelFunc := lock.NewManager(time.Hour, time.Hour)
+	lm, cancelFunc := lock.NewManager(2, time.Hour, time.Hour)
 	defer cancelFunc()
 
 	ch, err := lm.Lock("mylock", "key", 1, ctx)
@@ -147,7 +147,7 @@ func TestManagedLock(t *testing.T) {
 func TestWaitManagedLockTimeout(t *testing.T) {
 	assert := assert.New(t)
 
-	lm, cancelFunc := lock.NewManager(time.Hour, time.Hour)
+	lm, cancelFunc := lock.NewManager(2, time.Hour, time.Hour)
 	defer cancelFunc()
 
 	locked, err := lm.TryLock("lock", "key", 1)
@@ -178,7 +178,7 @@ func TestWaitManagedLockTimeout(t *testing.T) {
 func TestManager_UnlockInvalidKey(t *testing.T) {
 	assert := assert.New(t)
 
-	lm, cancelFunc := lock.NewManager(time.Hour, time.Hour)
+	lm, cancelFunc := lock.NewManager(2, time.Hour, time.Hour)
 	defer cancelFunc()
 
 	locked, err := lm.TryLock("lock", "key", 1)
@@ -193,7 +193,7 @@ func TestManager_UnlockInvalidKey(t *testing.T) {
 func TestManager_UnlockNotFound(t *testing.T) {
 	assert := assert.New(t)
 
-	lm, cancelFunc := lock.NewManager(time.Hour, time.Hour)
+	lm, cancelFunc := lock.NewManager(2, time.Hour, time.Hour)
 	defer cancelFunc()
 
 	unlocked, err := lm.Unlock("lock", "otherkey")
@@ -208,7 +208,7 @@ func TestManager_UnlockNotFound(t *testing.T) {
 func TestManager_SizeMismatch(t *testing.T) {
 	assert := assert.New(t)
 
-	lm, cancelFunc := lock.NewManager(time.Hour, time.Hour)
+	lm, cancelFunc := lock.NewManager(2, time.Hour, time.Hour)
 	defer cancelFunc()
 
 	locked, err := lm.TryLock("lock", "key", 4)
@@ -224,7 +224,7 @@ func TestManager_SizeMismatch(t *testing.T) {
 func TestManager_InvalidSize(t *testing.T) {
 	assert := assert.New(t)
 
-	lm, cancelFunc := lock.NewManager(time.Hour, time.Hour)
+	lm, cancelFunc := lock.NewManager(2, time.Hour, time.Hour)
 	defer cancelFunc()
 
 	ch, err := lm.Lock("lock", "key", -2, context.Background())

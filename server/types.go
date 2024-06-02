@@ -33,6 +33,7 @@ type ctxKeyType struct{}
 var sessionCtxKey = ctxKeyType{}
 
 type LockServerConfig struct {
+	Shards              uint32        `desc:"Number of lock shards to use" default:"16"`
 	LockGcInterval      time.Duration `desc:"Interval at which to garbage collect unused locks." default:"30m" short:"g"`
 	LockGcMinIdle       time.Duration `desc:"Minimum time a lock has to be idle (no unlocks or locks) before being considered for garbage collection" default:"5m" short:"m"`
 	DefaultLockTimeout  time.Duration `desc:"Lock timeout to use when loading locks from state file on startup" default:"10m" short:"d"`

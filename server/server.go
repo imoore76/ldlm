@@ -67,7 +67,7 @@ type LockServer struct {
 //   - a function that closes the lock server.
 //   - an error if there was an issue creating the lock server.
 func New(c *LockServerConfig) (*LockServer, func(), error) {
-	lm, lmCloser := lock.NewManager(c.LockGcInterval, c.LockGcMinIdle)
+	lm, lmCloser := lock.NewManager(c.Shards, c.LockGcInterval, c.LockGcMinIdle)
 	l := &LockServer{
 		isShutdown:          atomic.Bool{},
 		lockMgr:             lm,
