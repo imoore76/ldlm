@@ -26,7 +26,6 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -74,7 +73,7 @@ type lockShard struct {
 type Manager struct {
 	shards        []*lockShard
 	stopCh        chan struct{}
-	isShutdown    atomic.Bool
+	isShutdown    bool
 	shutdownMtx   sync.RWMutex
 	cancelCauseFn context.CancelCauseFunc
 	ctx           context.Context
@@ -131,7 +130,7 @@ func NewManager(shards uint32, gcInterval time.Duration, gcMinIdle time.Duration
 
 // Returns the correct map shard for the provided lock name
 func (m *Manager) getShard(name string) *lockShard {
-	h := fnv.New32a()
+	h := fnv.New32()
 	if _, err := h.Write([]byte(name)); err != nil {
 		panic("Error writing to fnv hash: " + err.Error())
 	}
@@ -153,7 +152,7 @@ func (m *Manager) shutdown() {
 	// Clear all unlocked locks
 	m.lockGc(0 * time.Second)
 
-	m.isShutdown.Store(true)
+	m.isShutdown = true
 }
 
 // getLock gets or creates a lock with the given name
@@ -196,7 +195,7 @@ func (m *Manager) Lock(name string, key string, size int32, ctx context.Context)
 	m.shutdownMtx.RLock()
 	defer m.shutdownMtx.RUnlock()
 
-	if m.isShutdown.Load() {
+	if m.isShutdown {
 		return nil, ErrManagerShutdown
 	}
 
@@ -215,7 +214,7 @@ func (m *Manager) TryLock(name string, key string, size int32) (bool, error) {
 	m.shutdownMtx.RLock()
 	defer m.shutdownMtx.RUnlock()
 
-	if m.isShutdown.Load() {
+	if m.isShutdown {
 		return false, ErrManagerShutdown
 	}
 
@@ -234,7 +233,7 @@ func (m *Manager) Unlock(name string, key string) (bool, error) {
 	m.shutdownMtx.RLock()
 	defer m.shutdownMtx.RUnlock()
 
-	if m.isShutdown.Load() {
+	if m.isShutdown {
 		return false, ErrManagerShutdown
 	}
 
