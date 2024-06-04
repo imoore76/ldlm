@@ -79,13 +79,16 @@ type Manager struct {
 	ctx           context.Context
 }
 
-// NewManager creates a new Manager with the given garbage collection interval, minimum idle time, and logger, and returns a pointer to the Manager.
+// NewManager creates a new Manager with the given garbage collection interval, minimum idle time,
+// and logger, and returns a pointer to the Manager.
 //
 // Parameters:
-// - ctx context.Context: the context for the Manager
-// - shards uint32: the number of lock shards to use
-// - gcInterval time.Duration: the interval for lock garbage collection
-// - gcMinIdle time.Duration: the minimum time a lock must be idle before being considered for garbage collection
+//   - ctx context.Context: the context for the Manager
+//   - shards uint32: the number of lock shards to use
+//   - gcInterval time.Duration: the interval for lock garbage collection
+//   - gcMinIdle time.Duration: the minimum time a lock must be idle before being considered for
+//     garbage collection
+//
 // Returns:
 // - *Manager: a pointer to the newly created Manager
 func NewManager(shards uint32, gcInterval time.Duration, gcMinIdle time.Duration) (*Manager, func()) {
@@ -190,7 +193,8 @@ func (m *Manager) getLock(name string, create bool, size int32) (*ManagedLock, e
 	return shard.locks[name], nil
 }
 
-// Lock obtains a lock on the named lock. It blocks until a lock is obtained or is canceled / timed out by context
+// Lock obtains a lock on the named lock. It blocks until a lock is obtained or is canceled or
+// timed out by context
 func (m *Manager) Lock(name string, key string, size int32, ctx context.Context) (chan interface{}, error) {
 	m.shutdownMtx.RLock()
 	defer m.shutdownMtx.RUnlock()
