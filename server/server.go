@@ -171,7 +171,7 @@ func (l *LockServer) Lock(ctx context.Context, name string, size *int32, lockTim
 	)
 
 	var (
-		locker chan interface{}
+		locker <-chan interface{}
 		err    error
 	)
 

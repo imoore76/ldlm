@@ -195,7 +195,7 @@ func (m *Manager) getLock(name string, create bool, size int32) (*ManagedLock, e
 
 // Lock obtains a lock on the named lock. It blocks until a lock is obtained or is canceled or
 // timed out by context
-func (m *Manager) Lock(name string, key string, size int32, ctx context.Context) (chan interface{}, error) {
+func (m *Manager) Lock(name string, key string, size int32, ctx context.Context) (<-chan interface{}, error) {
 	m.shutdownMtx.RLock()
 	defer m.shutdownMtx.RUnlock()
 

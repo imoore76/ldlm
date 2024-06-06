@@ -76,7 +76,7 @@ func (l *Lock) unlockKey() {
 // Lock blocks until the lock is obtained or is canceled / timed out by context
 // and returns a channel with the result. The interface returned will be either
 // a struct{} (meaning the lock was acquired) or an error
-func (l *Lock) Lock(key string, ctx context.Context) chan interface{} {
+func (l *Lock) Lock(key string, ctx context.Context) <-chan interface{} {
 	rChan := make(chan interface{})
 	go func() {
 		if l.ctx.Err() != nil {
