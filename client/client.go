@@ -278,6 +278,7 @@ func (c *client) TryLock(name string, o *LockOptions) (*Lock, error) {
 // - bool: True if the lock was successfully released, false otherwise.
 // - error: An error if the lock release fails.
 func (c *client) Unlock(name string, key string) (bool, error) {
+	c.maybeRemoveRefresher(name)
 	r, err := rpcWithRetry(
 		c.maxRetries,
 		func() (*pb.UnlockResponse, error) {
@@ -289,9 +290,6 @@ func (c *client) Unlock(name string, key string) (bool, error) {
 	)
 	if err != nil {
 		return false, err
-	}
-	if r.Unlocked {
-		c.maybeRemoveRefresher(name)
 	}
 	return r.Unlocked, rpcErrorToError(r.Error)
 }
@@ -379,7 +377,6 @@ type refresher struct {
 	key                string
 	lockTimeoutSeconds int32
 	stop               chan struct{}
-	stopped            chan struct{}
 }
 
 // NewRefresher creates a new refresher instance with the given client, name, key, and lock timeout.
@@ -398,8 +395,7 @@ func NewRefresher(client *client, name string, key string, lockTimeoutSeconds in
 		name:               name,
 		key:                key,
 		lockTimeoutSeconds: lockTimeoutSeconds,
-		stop:               make(chan struct{}, 1),
-		stopped:            make(chan struct{}),
+		stop:               make(chan struct{}),
 	}
 	r.Start()
 	return r
@@ -425,13 +421,13 @@ func (r *refresher) Start() {
 				if !t.Stop() {
 					<-t.C
 				}
-				r.stopped <- struct{}{}
+				close(r.stop)
 				return
 			case <-r.stop:
 				if !t.Stop() {
 					<-t.C
 				}
-				r.stopped <- struct{}{}
+				close(r.stop)
 				return
 			case <-t.C:
 				if _, err := r.client.RefreshLock(r.name, r.key, r.lockTimeoutSeconds); err != nil {
@@ -447,9 +443,11 @@ func (r *refresher) Start() {
 // No parameters.
 // No return values.
 func (r *refresher) Stop() {
-	close(r.stop)
-	<-r.stopped
-	close(r.stopped)
+	select {
+	case r.stop <- struct{}{}:
+		<-r.stop
+	default:
+	}
 }
 
 // rpcErrorToError converts an RPC error to a standard error.

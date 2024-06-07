@@ -39,10 +39,10 @@ var (
 // LockInfo is a struct that contains only basic information about a lock
 type LockInfo struct {
 	Name         string
-	Keys         string // The lock key*s)
+	Keys         string
 	LastAccessed time.Time
 	Locked       bool
-	Size         int // The lock size
+	Size         int
 }
 
 // A ManagedLock is a lock with a some record keeping fields for
@@ -118,10 +118,10 @@ func NewManager(shards uint32, gcInterval time.Duration, gcMinIdle time.Duration
 			select {
 			case <-m.stopCh:
 				slog.Warn("Garbage collection exiting")
-				close(m.stopCh)
 				if !doGc.Stop() {
 					<-doGc.C
 				}
+				close(m.stopCh)
 				return
 			case <-doGc.C:
 				m.lockGc(gcMinIdle)
