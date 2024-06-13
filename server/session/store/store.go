@@ -24,7 +24,8 @@ import (
 	"io"
 	"os"
 
-	bstd "github.com/deneonet/benc"
+	"github.com/deneonet/benc"
+	"github.com/deneonet/benc/bstd"
 	cl "github.com/imoore76/go-ldlm/server/clientlock"
 )
 
@@ -134,100 +135,90 @@ func (l *store) Close() {
 	}
 }
 
-// Marshal client lock map to byte slice for writing
-func marshalLocks(m map[string][]cl.Lock) ([]byte, error) {
-	// It seems benc doesn't handle a map of slices natively, so this format had
-	// to be created. It is:
-	// The first Uint size of bytes is the length of the map.
-	// 		* For each map element
-	// 			* The string key
-	// 			* Its session locks slice
-	sz := bstd.SizeUInt() // size is uint
-	for k, v := range m { // add size of key, then size of slice for each value in map
-		sz += bstd.SizeString(k) + bstd.SizeSlice(v, func(clk cl.Lock) int {
-			return bstd.SizeString(clk.Name()) + bstd.SizeString(clk.Key()) + bstd.SizeInt32()
-		})
-	}
-	n, buf := bstd.Marshal(sz)
-	n = bstd.MarshalUInt(n, buf, uint(len(m)))
-	for k, v := range m {
-		n = bstd.MarshalString(n, buf, k)
-		n = bstd.MarshalSlice(n, buf, v, marshalLock)
-	}
-	return buf, bstd.VerifyMarshal(n, buf)
-}
-
-// Unmarshal byte slice to client lock map
-func unmarshalLocks(b []byte) (map[string][]cl.Lock, error) {
-	// See marshalLocks() for file format notes
-	m := make(map[string][]cl.Lock)
-	if len(b) == 0 {
-		return m, nil
-	}
-	var n int = 0
-	var maplength uint
-
-	n, maplength, err := bstd.UnmarshalUInt(n, b)
+func sizeLock(clk cl.Lock) (s int, err error) {
+	// Calculate the size of `clk` (cl.Lock)
+	s, err = bstd.SizeString(clk.Name())
 	if err != nil {
-		panic(err)
+		return
 	}
 
-	var k string
-	var l []cl.Lock
-	for range maplength {
-		// Key
-		n, k, err = bstd.UnmarshalString(n, b)
-		if err != nil {
-			panic(err)
-		}
-		// Slice of session locks
-		n, l, err = bstd.UnmarshalSlice(n, b, unmarshalLock)
-		if err != nil {
-			panic(err)
-		}
-		m[k] = l
-	}
-
-	return m, nil
+	s2 := 0
+	s2, err = bstd.SizeString(clk.Key())
+	s += s2 + bstd.SizeInt32()
+	return
 }
 
 // marshalLock marshals a single client lock struct
-func marshalLock(n int, b []byte, l cl.Lock) int {
-	// Calculate the size of the struct
-	sz := bstd.SizeString(l.Name()) + bstd.SizeString(l.Key()) + bstd.SizeInt32()
-
+func marshalLock(n int, b []byte, l cl.Lock) (int, error) {
 	// Serialize the struct into a byte slice
-	nn, buf := bstd.Marshal(sz)
-	nn = bstd.MarshalString(nn, buf, l.Name())
-	nn = bstd.MarshalString(nn, buf, l.Key())
-	bstd.MarshalInt32(nn, buf, l.Size())
+	var err error
+	if n, err = bstd.MarshalString(n, b, l.Name()); err != nil {
+		return n, err
+	}
+	if n, err = bstd.MarshalString(n, b, l.Key()); err != nil {
+		return n, err
+	}
 
-	copy(b[n:n+sz], buf)
-
+	n = bstd.MarshalInt32(n, b, l.Size())
 	// Return new offset in the byte slice
-	return n + sz
+	return n, nil
 }
 
 // unmarshalLock unmarshals a single client lock struct
 func unmarshalLock(n int, b []byte) (int, cl.Lock, error) {
-	clk := cl.New("", "", 0)
+	// error cl.Lock return
+	dft := cl.New("", "", 0)
 
 	var name, key string
 	// Deserialize the byte slice into the struct
 	n, name, err := bstd.UnmarshalString(n, b)
 	if err != nil {
-		return 0, clk, err
+		return 0, dft, err
 	}
 
 	n, key, err = bstd.UnmarshalString(n, b)
 	if err != nil {
-		return 0, clk, err
+		return 0, dft, err
 	}
 
 	n, size, err := bstd.UnmarshalInt32(n, b)
 	if err != nil {
-		return 0, clk, err
+		return 0, dft, err
 	}
 
 	return n, cl.New(name, key, size), nil
+}
+
+// Marshal client lock map to byte slice for writing
+func marshalLocks(m map[string][]cl.Lock) ([]byte, error) {
+	sz, err := bstd.SizeMap(m, bstd.SizeString, func(v []cl.Lock) (int, error) {
+		return bstd.SizeSlice(v, sizeLock)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	n, b := benc.Marshal(sz)
+	n, err = bstd.MarshalMap(n, b, m, bstd.MarshalString, func(n int, b []byte, v []cl.Lock) (int, error) {
+		return bstd.MarshalSlice(n, b, v, marshalLock)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return b, benc.VerifyMarshal(n, b)
+}
+
+// Unmarshal byte slice to client lock map
+func unmarshalLocks(b []byte) (map[string][]cl.Lock, error) {
+	// See marshalLocks() for file format notes
+	n, m, err := bstd.UnmarshalMap(0, b, bstd.UnmarshalString, func(n int, b []byte) (int, []cl.Lock, error) {
+		n, s, err := bstd.UnmarshalSlice(n, b, unmarshalLock)
+		return n, s, err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return m, benc.VerifyMarshal(n, b)
 }
