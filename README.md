@@ -1,3 +1,7 @@
+<p align="center">
+<img src="images/LDLM%20Logo%20Symbol.png" height="95" width="100" alt="ldlm logo" />
+</p>
+
 # ldlm
 
 ldlm is a lightweight distributed lock manager implemented over gRPC and REST.
