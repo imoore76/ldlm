@@ -2,9 +2,9 @@
 <img src="images/LDLM%20Logo%20Symbol.png" height="95" width="100" alt="ldlm logo" />
 </p>
 
-# ldlm
+# LDLM
 
-ldlm is a lightweight distributed lock manager implemented over gRPC and REST.
+LDLM is a lightweight distributed lock manager implemented over gRPC and REST.
 
 ## Installation
 
@@ -206,11 +206,11 @@ The first client that obtains the lock within the uptime of the LDLM server will
 
 ## Lock Keys
 
-Lock keys are meant to detect when ldlm and a client are out of sync. They are not cryptographic. They are not secret. They are not meant to deter malicious users from releasing locks.
+Lock keys are meant to detect when LDLM and a client are out of sync. They are not cryptographic. They are not secret. They are not meant to deter malicious users from releasing locks.
 
 ## ldlm-lock commands
 
-The ldlm-lock command is used to manipulate locks in a running ldlm server on the CLI. See also `ldlm-lock -help`.
+The ldlm-lock command is used to manipulate locks in a running LDLM server on the CLI. See also `ldlm-lock -help`.
 
 ### List Locks
 
@@ -220,7 +220,7 @@ This prints a list of locks and their keys
 
 ### Force Unlocking
 
-If a lock ever becomes deadlocked (this *should* not happen), you can unlock it by running the following on the same machine as a running ldlm server:
+If a lock ever becomes deadlocked (this *should* not happen), you can unlock it by running the following on the same machine as a running LDLM server:
 
     ldlm-lock unlock <lock name>
 
