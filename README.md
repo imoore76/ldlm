@@ -4,7 +4,7 @@
 
 # LDLM
 
-LDLM is a lightweight distributed lock manager implemented over gRPC and REST.
+LDLM is a **L**ightweight **D**istributed **L**ock **M**anager implemented over gRPC and REST.
 
 ## Installation
 
