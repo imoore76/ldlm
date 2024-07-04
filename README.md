@@ -224,7 +224,7 @@ If a lock ever becomes deadlocked (this *should* not happen), you can unlock it 
 
     ldlm-lock unlock <lock name>
 
-## Examples
+## Use Cases
 
 ### Primary / Secondary Failover
 
