@@ -121,7 +121,7 @@ func Run(lsrv LockServer, c *IPCConfig) (func(), error) {
 		log.Info("IPC server shutting down...")
 		// Close listener
 		if err := l.Close(); err != nil {
-			log.Error("error closing listener: %v", err)
+			log.Error("error closing listener", "error", err)
 		}
 
 		log.Info("IPC server shut down", "file", c.IPCSocketFile)
