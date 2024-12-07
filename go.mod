@@ -1,11 +1,9 @@
 module github.com/imoore76/go-ldlm
 
-go 1.22.7
-
-toolchain go1.23.4
+go 1.23.4
 
 require (
-	github.com/alecthomas/kong v1.5.1
+	github.com/alecthomas/kong v1.6.0
 	github.com/deneonet/benc v1.1.2
 	github.com/fatih/structtag v1.2.0
 	github.com/google/uuid v1.6.0
