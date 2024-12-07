@@ -17,7 +17,7 @@ package security_test
 import (
 	"testing"
 
-	"github.com/imoore76/go-ldlm/config"
+	config "github.com/imoore76/configurature"
 	"github.com/stretchr/testify/assert"
 
 	con "github.com/imoore76/go-ldlm/constants"
