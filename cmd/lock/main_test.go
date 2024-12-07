@@ -63,7 +63,7 @@ func TestUsage(t *testing.T) {
 
 	out, errout := runMain(t)
 	assert.Equal("", out)
-	assert.Equal("ldlm: error: expected one of \"unlock\",  \"list\"\n", errout)
+	assert.Equal("ldlm: error: expected one of \"unlock\", \"list\"\n", errout)
 
 }
 
