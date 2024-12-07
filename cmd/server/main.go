@@ -23,7 +23,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/imoore76/go-ldlm/config"
+	config "github.com/imoore76/configurature"
 	"github.com/imoore76/go-ldlm/constants"
 	"github.com/imoore76/go-ldlm/log"
 	"github.com/imoore76/go-ldlm/net"
@@ -32,8 +32,8 @@ import (
 
 // Configurature struct for app configuration
 type Config struct {
-	ConfigFile config.File `desc:"Path to yaml configuration file" default:"" short:"c"`
-	Version    bool        `desc:"Show version and exit" default:"false"`
+	ConfigFile config.ConfigFile `desc:"Path to yaml configuration file" default:"" short:"c"`
+	Version    bool              `desc:"Show version and exit" default:"false"`
 	constants.LogLevelConfig
 	server.LockServerConfig
 	net.NetConfig

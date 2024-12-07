@@ -20,7 +20,7 @@ package main
 import (
 	"os"
 
-	"github.com/imoore76/go-ldlm/config"
+	cnf "github.com/imoore76/configurature"
 	"github.com/imoore76/go-ldlm/constants"
 	"github.com/imoore76/go-ldlm/stresstest"
 
@@ -35,7 +35,7 @@ type Config struct {
 
 func main() {
 
-	c := config.Configure[Config](&config.Options{
+	c := cnf.Configure[Config](&cnf.Options{
 		EnvPrefix: constants.ConfigEnvPrefix,
 		Args:      os.Args[1:],
 	})

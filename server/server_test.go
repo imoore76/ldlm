@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
+	config "github.com/imoore76/configurature"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/imoore76/go-ldlm/config"
-	con "github.com/imoore76/go-ldlm/constants"
+	"github.com/imoore76/go-ldlm/constants"
 	"github.com/imoore76/go-ldlm/lock"
 	_ "github.com/imoore76/go-ldlm/log"
 	"github.com/imoore76/go-ldlm/server"
@@ -70,7 +70,7 @@ func getTestConfig(opts map[string]string) *server.LockServerConfig {
 		confOpts = append(confOpts, "--"+k, v)
 	}
 	return config.Configure[server.LockServerConfig](
-		&config.Options{EnvPrefix: con.TestConfigEnvPrefix, Args: confOpts},
+		&config.Options{EnvPrefix: constants.TestConfigEnvPrefix, Args: confOpts},
 	)
 }
 
