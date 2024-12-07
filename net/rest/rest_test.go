@@ -25,11 +25,12 @@ import (
 	"testing"
 	"time"
 
-	conf "github.com/imoore76/go-ldlm/config"
-	sec "github.com/imoore76/go-ldlm/net/security"
-	pb "github.com/imoore76/go-ldlm/protos"
+	config "github.com/imoore76/configurature"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/stats"
+
+	sec "github.com/imoore76/go-ldlm/net/security"
+	pb "github.com/imoore76/go-ldlm/protos"
 )
 
 func TestSessionCreate(t *testing.T) {
@@ -459,13 +460,13 @@ func (g *testGrpcServer) TagRPC(ctx context.Context, _ *stats.RPCTagInfo) contex
 func (g *testGrpcServer) HandleRPC(ctx context.Context, _ stats.RPCStats) {}
 
 func getRestConf(args []string) *RestConfig {
-	return conf.Configure[RestConfig](&conf.Options{
+	return config.Configure[RestConfig](&config.Options{
 		Args: args,
 	})
 }
 
 func getSecConf(args []string) *sec.SecurityConfig {
-	return conf.Configure[sec.SecurityConfig](&conf.Options{
+	return config.Configure[sec.SecurityConfig](&config.Options{
 		Args: args,
 	})
 }

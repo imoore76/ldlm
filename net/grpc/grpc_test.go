@@ -22,13 +22,13 @@ import (
 	"net"
 	"testing"
 
+	config "github.com/imoore76/configurature"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 
-	"github.com/imoore76/go-ldlm/config"
 	con "github.com/imoore76/go-ldlm/constants"
 	"github.com/imoore76/go-ldlm/lock"
 	sec "github.com/imoore76/go-ldlm/net/security"
