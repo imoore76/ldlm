@@ -1,6 +1,6 @@
 module github.com/imoore76/go-ldlm
 
-go 1.23.4
+go 1.23.3
 
 require (
 	github.com/alecthomas/kong v1.6.0
