@@ -22,7 +22,6 @@ import (
 	"github.com/imoore76/go-ldlm/net/grpc"
 	"github.com/imoore76/go-ldlm/net/rest"
 	sec "github.com/imoore76/go-ldlm/net/security"
-
 	"github.com/imoore76/go-ldlm/server"
 )
 

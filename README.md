@@ -80,7 +80,7 @@ json
 
 ## API Usage
 
-Basic client usage consists of locking and unlocking locks named by the API client. When a lock is obtained, the response contains a `key` that must be used to unlock the lock - it can not be unlocked using any other [key](#lock-keys). 
+Basic client usage consists of locking and unlocking locks named by the API client. When a lock is obtained, the response contains a `key` that must be used to unlock the lock - it can not be unlocked using any other [key](#lock-keys). See also the <a href="./examples">examples</a> folder.
 
 The API functions are `Lock`, `TryLock`, `Unlock`, and `RefreshLock`. Here are some examples in a language I've completely invented for the purpose of this demonstration.
 
