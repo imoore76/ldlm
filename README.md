@@ -80,7 +80,7 @@ json
 
 ## API Usage
 
-Basic client usage consists of locking and unlocking locks named by the API client. When a lock is obtained, the response contains a `key` that must be used to unlock the lock - it can not be unlocked using any other [key](#lock-keys). 
+Basic client usage consists of locking and unlocking locks named by the API client. When a lock is obtained, the response contains a `key` that must be used to unlock the lock - it can not be unlocked using any other [key](#lock-keys). See also the <a href="./examples">examples</a> folder.
 
 The API functions are `Lock`, `TryLock`, `Unlock`, and `RefreshLock`. Here are some examples in a language I've completely invented for the purpose of this demonstration.
 
@@ -281,16 +281,56 @@ resp = client.Lock({
     Size: 10,
 })
 
-if (!resp.Locked) {
-    raise Exception("error: lock returned but not locked")
-}
-
 // Do work
 
 resp = client.Unlock({
     Name: resp.Name,
     Key: resp.Key,
 })
+```
+
+### Client Rate Limiting
+
+Limit request rate to a service using locks:
+
+```javascript
+
+// Client-enforced rate limit of 30 requests per minute. Assuming multiple clients
+// distributed across processes / machines / containers.
+client.Lock({
+    Name: "ExpensiveServiceRequest",
+    Size: 30,
+    LockTimeoutSeconds: 60,
+})
+
+ExpensiveService.GetAll()
+
+// Do not unlock. Lock will expire in 60 seconds, which enforce the rate limit.
+
+```
+
+### Server Rate Limiting
+
+Limit request rate to a an using locks:
+
+```javascript
+// Server-enforced rate limit of 30 requests per minute. Assuming multiple servers
+// distributed across processes / machines / containers.
+
+lock = client.TryLock({
+    Name: "ExpensiveAPICall",
+    Size: 30,
+    LockTimeoutSeconds: 60,
+})
+
+if (!lock.Locked) {
+    return HttpStatus(429, "429 Too Many Requests")
+}
+// Do not unlock. Lock will expire in 60 seconds, which enforce the rate limit.
+
+ExpensiveAPICall.Do()
+
+
 ```
 
 ### Password
