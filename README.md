@@ -296,7 +296,8 @@ Limit request rate to a service using locks:
 ```javascript
 
 // Client-enforced rate limit of 30 requests per minute. Assuming multiple clients
-// distributed across processes / machines / containers.
+// distributed across processes / machines / containers. Be sure to disable the
+// auto_lock_refresh option when instantiating the LDLM client.
 client.Lock({
     Name: "ExpensiveServiceRequest",
     Size: 30,
@@ -315,7 +316,8 @@ Limit request rate to a an using locks:
 
 ```javascript
 // Server-enforced rate limit of 30 requests per minute. Assuming multiple servers
-// distributed across processes / machines / containers.
+// distributed across processes / machines / containers. Be sure to disable the
+// auto_lock_refresh option when instantiating the LDLM client.
 
 lock = client.TryLock({
     Name: "ExpensiveAPICall",
@@ -326,7 +328,7 @@ lock = client.TryLock({
 if (!lock.Locked) {
     return HttpStatus(429, "429 Too Many Requests")
 }
-// Do not unlock. Lock will expire in 60 seconds, which enforce the rate limit.
+// Do not unlock. Lock will expire in 60 seconds, which enforces the rate limit.
 
 ExpensiveAPICall.Do()
 
