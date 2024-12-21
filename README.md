@@ -331,8 +331,6 @@ if (!lock.Locked) {
 // Do not unlock. Lock will expire in 60 seconds, which enforces the rate limit.
 
 ExpensiveAPICall.Do()
-
-
 ```
 
 ### Password
