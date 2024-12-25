@@ -83,27 +83,27 @@ func local_request_LDLM_Unlock_0(ctx context.Context, marshaler runtime.Marshale
 	return msg, metadata, err
 }
 
-func request_LDLM_RefreshLock_0(ctx context.Context, marshaler runtime.Marshaler, client LDLMClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_LDLM_Renew_0(ctx context.Context, marshaler runtime.Marshaler, client LDLMClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq RefreshLockRequest
+		protoReq RenewRequest
 		metadata runtime.ServerMetadata
 	)
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	msg, err := client.RefreshLock(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Renew(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
 
-func local_request_LDLM_RefreshLock_0(ctx context.Context, marshaler runtime.Marshaler, server LDLMServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_LDLM_Renew_0(ctx context.Context, marshaler runtime.Marshaler, server LDLMServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq RefreshLockRequest
+		protoReq RenewRequest
 		metadata runtime.ServerMetadata
 	)
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	msg, err := server.RefreshLock(ctx, &protoReq)
+	msg, err := server.Renew(ctx, &protoReq)
 	return msg, metadata, err
 }
 
@@ -153,25 +153,25 @@ func RegisterLDLMHandlerServer(ctx context.Context, mux *runtime.ServeMux, serve
 		}
 		forward_LDLM_Unlock_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
-	mux.Handle(http.MethodPost, pattern_LDLM_RefreshLock_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_LDLM_Renew_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/ldlm.LDLM/RefreshLock", runtime.WithHTTPPathPattern("/v1/refreshlock"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/ldlm.LDLM/Renew", runtime.WithHTTPPathPattern("/v1/renew"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_LDLM_RefreshLock_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_LDLM_Renew_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		forward_LDLM_RefreshLock_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_LDLM_Renew_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 
 	return nil
@@ -247,34 +247,34 @@ func RegisterLDLMHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 		}
 		forward_LDLM_Unlock_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
-	mux.Handle(http.MethodPost, pattern_LDLM_RefreshLock_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_LDLM_Renew_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/ldlm.LDLM/RefreshLock", runtime.WithHTTPPathPattern("/v1/refreshlock"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/ldlm.LDLM/Renew", runtime.WithHTTPPathPattern("/v1/renew"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_LDLM_RefreshLock_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_LDLM_Renew_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		forward_LDLM_RefreshLock_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_LDLM_Renew_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 	return nil
 }
 
 var (
-	pattern_LDLM_TryLock_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "lock"}, ""))
-	pattern_LDLM_Unlock_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "unlock"}, ""))
-	pattern_LDLM_RefreshLock_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "refreshlock"}, ""))
+	pattern_LDLM_TryLock_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "lock"}, ""))
+	pattern_LDLM_Unlock_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "unlock"}, ""))
+	pattern_LDLM_Renew_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "renew"}, ""))
 )
 
 var (
-	forward_LDLM_TryLock_0     = runtime.ForwardResponseMessage
-	forward_LDLM_Unlock_0      = runtime.ForwardResponseMessage
-	forward_LDLM_RefreshLock_0 = runtime.ForwardResponseMessage
+	forward_LDLM_TryLock_0 = runtime.ForwardResponseMessage
+	forward_LDLM_Unlock_0  = runtime.ForwardResponseMessage
+	forward_LDLM_Renew_0   = runtime.ForwardResponseMessage
 )

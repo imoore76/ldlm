@@ -33,7 +33,7 @@ type lockServer interface {
 	Lock(ctx context.Context, name string, size *int32, lockTimeoutSeconds *int32, waitTimeoutSeconds *int32) (*server.Lock, error)
 	TryLock(ctx context.Context, name string, size *int32, lockTimeoutSeconds *int32) (*server.Lock, error)
 	Unlock(ctx context.Context, name string, key string) (bool, error)
-	RefreshLock(ctx context.Context, name string, key string, lockTimeoutSeconds int32) (*server.Lock, error)
+	Renew(ctx context.Context, name string, key string, lockTimeoutSeconds int32) (*server.Lock, error)
 	DestroySession(ctx context.Context) string
 	CreateSession(ctx context.Context, metadata map[string]any) (string, context.Context)
 }

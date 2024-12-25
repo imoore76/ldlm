@@ -14,7 +14,7 @@
 
 /*
 This file contains the timer manager struct and methods. A timer manager is used for handling a
-map of timers which perform a callback when they expire. They can be removed or refreshed before
+map of timers which perform a callback when they expire. They can be removed or renewed before
 they expire.
 */
 package timer
@@ -71,8 +71,8 @@ func (m *manager) Remove(key string) {
 
 }
 
-// Refresh refreshes a timer
-func (m *manager) Refresh(key string, timeout time.Duration) (bool, error) {
+// Renew renews a timer
+func (m *manager) Renew(key string, timeout time.Duration) (bool, error) {
 	m.timersMtx.RLock()
 	t, ok := m.timers[key]
 	m.timersMtx.RUnlock()

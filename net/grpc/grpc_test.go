@@ -306,7 +306,7 @@ func TestTryLock_Error(t *testing.T) {
 	}, l.tryLockCall)
 }
 
-func TestRefreshLock(t *testing.T) {
+func TestRenew(t *testing.T) {
 	assert := assert.New(t)
 
 	l := &testLockServer{}
@@ -314,7 +314,7 @@ func TestRefreshLock(t *testing.T) {
 	defer closer()
 
 	client, _ := mkClient()
-	res, err := client.RefreshLock(context.Background(), &pb.RefreshLockRequest{
+	res, err := client.Renew(context.Background(), &pb.RenewRequest{
 		Name:               "testlock",
 		Key:                "key",
 		LockTimeoutSeconds: 23,
@@ -331,14 +331,14 @@ func TestRefreshLock(t *testing.T) {
 		name:               "testlock",
 		key:                "key",
 		lockTimeoutSeconds: 23,
-	}, l.refreshLockCall)
+	}, l.renewCall)
 }
 
-func TestRefreshLock_Error(t *testing.T) {
+func TestRenew_Error(t *testing.T) {
 	assert := assert.New(t)
 
 	l := &testLockServer{
-		refreshLockResponse: &lockResponse{
+		renewResponse: &lockResponse{
 			err: server.ErrEmptyName,
 		},
 	}
@@ -346,7 +346,7 @@ func TestRefreshLock_Error(t *testing.T) {
 	defer closer()
 
 	client, _ := mkClient()
-	res, err := client.RefreshLock(context.Background(), &pb.RefreshLockRequest{
+	res, err := client.Renew(context.Background(), &pb.RenewRequest{
 		Name:               "testlock",
 		Key:                "foo",
 		LockTimeoutSeconds: 34,
@@ -366,7 +366,7 @@ func TestRefreshLock_Error(t *testing.T) {
 		name:               "testlock",
 		key:                "foo",
 		lockTimeoutSeconds: 34,
-	}, l.refreshLockCall)
+	}, l.renewCall)
 }
 
 func TestUnlock(t *testing.T) {
@@ -488,7 +488,7 @@ func TestErrorsToProtoErrors(t *testing.T) {
 			tryLockResponse: &lockResponse{
 				err: c.err,
 			},
-			refreshLockResponse: &lockResponse{
+			renewResponse: &lockResponse{
 				err: c.err,
 			},
 		}
@@ -527,7 +527,7 @@ func TestErrorsToProtoErrors(t *testing.T) {
 			assert.Equal(c.code, res.Error.Code)
 		}
 
-		lres, err = client.RefreshLock(context.Background(), &pb.RefreshLockRequest{
+		lres, err = client.Renew(context.Background(), &pb.RenewRequest{
 			Name: "testlock",
 		})
 		assert.Nil(err)
@@ -584,8 +584,8 @@ type testLockServer struct {
 		unlocked bool
 		err      error
 	}
-	refreshLockResponse *lockResponse
-	lockCall            *struct {
+	renewResponse *lockResponse
+	lockCall      *struct {
 		name               string
 		lockTimeoutSeconds *int32
 		waitTimeoutSeconds *int32
@@ -600,7 +600,7 @@ type testLockServer struct {
 		name string
 		key  string
 	}
-	refreshLockCall *struct {
+	renewCall *struct {
 		name               string
 		key                string
 		lockTimeoutSeconds int32
@@ -671,8 +671,8 @@ func (t *testLockServer) Unlock(ctx context.Context, name string, key string) (b
 	return true, nil
 }
 
-func (t *testLockServer) RefreshLock(ctx context.Context, name string, key string, lockTimeoutSeconds int32) (*server.Lock, error) {
-	t.refreshLockCall = &struct {
+func (t *testLockServer) Renew(ctx context.Context, name string, key string, lockTimeoutSeconds int32) (*server.Lock, error) {
+	t.renewCall = &struct {
 		name               string
 		key                string
 		lockTimeoutSeconds int32
@@ -681,8 +681,8 @@ func (t *testLockServer) RefreshLock(ctx context.Context, name string, key strin
 		key:                key,
 		lockTimeoutSeconds: lockTimeoutSeconds,
 	}
-	if t.refreshLockResponse != nil {
-		return t.refreshLockResponse.lock, t.refreshLockResponse.err
+	if t.renewResponse != nil {
+		return t.renewResponse.lock, t.renewResponse.err
 	}
 	return &server.Lock{
 		Name:   name,

@@ -44,7 +44,7 @@ func TestManager(t *testing.T) {
 	assert.Equal([]string{"foo", "me"}, expired.Get())
 }
 
-func TestManager_Refresh(t *testing.T) {
+func TestManager_Renew(t *testing.T) {
 	assert := assert.New(t)
 	expired := newSafeStringSlice()
 	m, cl := timer.NewManager()
@@ -59,7 +59,7 @@ func TestManager_Refresh(t *testing.T) {
 		expired.Add("baz")
 	}, 1*time.Hour)
 
-	ok, err := m.Refresh("me", 1*time.Hour)
+	ok, err := m.Renew("me", 1*time.Hour)
 	assert.Nil(err)
 	assert.True(ok)
 
