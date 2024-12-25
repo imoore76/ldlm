@@ -330,8 +330,8 @@ func (l *LockServer) TryLock(ctx context.Context, name string, size *int32, lock
 
 }
 
-// RenewLock renews a lock timer
-func (l *LockServer) RenewLock(ctx context.Context, name string, key string, lockTimeoutSeconds int32) (*Lock, error) {
+// Renew renews a lock timer
+func (l *LockServer) Renew(ctx context.Context, name string, key string, lockTimeoutSeconds int32) (*Lock, error) {
 
 	if lockTimeoutSeconds <= 0 {
 		return nil, ErrInvalidLockTimeout
@@ -339,7 +339,7 @@ func (l *LockServer) RenewLock(ctx context.Context, name string, key string, loc
 
 	ctxLog := log.FromContextOrDefault(ctx)
 	ctxLog.Info(
-		"RenewLock request",
+		"Renew request",
 		"lock", name,
 		"key", key,
 		"timeout", lockTimeoutSeconds,
@@ -352,7 +352,7 @@ func (l *LockServer) RenewLock(ctx context.Context, name string, key string, loc
 	}
 
 	ctxLog.Info(
-		"RenewLock response",
+		"Renew response",
 		"lock", name,
 		"locked", locked,
 		"error", err,

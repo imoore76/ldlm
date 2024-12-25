@@ -34,7 +34,7 @@ func lockRenewer(c pb.LDLMClient, ctx context.Context, name string, key string, 
 		for {
 			select {
 			case <-time.After(time.Duration(interval) * time.Second):
-				r, err := c.RenewLock(ctx, &pb.RenewLockRequest{
+				r, err := c.Renew(ctx, &pb.RenewRequest{
 					Name:               name,
 					Key:                key,
 					LockTimeoutSeconds: timeout_seconds,

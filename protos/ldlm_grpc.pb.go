@@ -33,10 +33,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	LDLM_Lock_FullMethodName      = "/ldlm.LDLM/Lock"
-	LDLM_TryLock_FullMethodName   = "/ldlm.LDLM/TryLock"
-	LDLM_Unlock_FullMethodName    = "/ldlm.LDLM/Unlock"
-	LDLM_RenewLock_FullMethodName = "/ldlm.LDLM/RenewLock"
+	LDLM_Lock_FullMethodName    = "/ldlm.LDLM/Lock"
+	LDLM_TryLock_FullMethodName = "/ldlm.LDLM/TryLock"
+	LDLM_Unlock_FullMethodName  = "/ldlm.LDLM/Unlock"
+	LDLM_Renew_FullMethodName   = "/ldlm.LDLM/Renew"
 )
 
 // LDLMClient is the client API for LDLM service.
@@ -46,7 +46,7 @@ type LDLMClient interface {
 	Lock(ctx context.Context, in *LockRequest, opts ...grpc.CallOption) (*LockResponse, error)
 	TryLock(ctx context.Context, in *TryLockRequest, opts ...grpc.CallOption) (*LockResponse, error)
 	Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc.CallOption) (*UnlockResponse, error)
-	RenewLock(ctx context.Context, in *RenewLockRequest, opts ...grpc.CallOption) (*LockResponse, error)
+	Renew(ctx context.Context, in *RenewRequest, opts ...grpc.CallOption) (*LockResponse, error)
 }
 
 type lDLMClient struct {
@@ -87,10 +87,10 @@ func (c *lDLMClient) Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc
 	return out, nil
 }
 
-func (c *lDLMClient) RenewLock(ctx context.Context, in *RenewLockRequest, opts ...grpc.CallOption) (*LockResponse, error) {
+func (c *lDLMClient) Renew(ctx context.Context, in *RenewRequest, opts ...grpc.CallOption) (*LockResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LockResponse)
-	err := c.cc.Invoke(ctx, LDLM_RenewLock_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, LDLM_Renew_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ type LDLMServer interface {
 	Lock(context.Context, *LockRequest) (*LockResponse, error)
 	TryLock(context.Context, *TryLockRequest) (*LockResponse, error)
 	Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error)
-	RenewLock(context.Context, *RenewLockRequest) (*LockResponse, error)
+	Renew(context.Context, *RenewRequest) (*LockResponse, error)
 	mustEmbedUnimplementedLDLMServer()
 }
 
@@ -124,8 +124,8 @@ func (UnimplementedLDLMServer) TryLock(context.Context, *TryLockRequest) (*LockR
 func (UnimplementedLDLMServer) Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Unlock not implemented")
 }
-func (UnimplementedLDLMServer) RenewLock(context.Context, *RenewLockRequest) (*LockResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RenewLock not implemented")
+func (UnimplementedLDLMServer) Renew(context.Context, *RenewRequest) (*LockResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Renew not implemented")
 }
 func (UnimplementedLDLMServer) mustEmbedUnimplementedLDLMServer() {}
 func (UnimplementedLDLMServer) testEmbeddedByValue()              {}
@@ -202,20 +202,20 @@ func _LDLM_Unlock_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LDLM_RenewLock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RenewLockRequest)
+func _LDLM_Renew_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenewRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LDLMServer).RenewLock(ctx, in)
+		return srv.(LDLMServer).Renew(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LDLM_RenewLock_FullMethodName,
+		FullMethod: LDLM_Renew_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LDLMServer).RenewLock(ctx, req.(*RenewLockRequest))
+		return srv.(LDLMServer).Renew(ctx, req.(*RenewRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -240,8 +240,8 @@ var LDLM_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LDLM_Unlock_Handler,
 		},
 		{
-			MethodName: "RenewLock",
-			Handler:    _LDLM_RenewLock_Handler,
+			MethodName: "Renew",
+			Handler:    _LDLM_Renew_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

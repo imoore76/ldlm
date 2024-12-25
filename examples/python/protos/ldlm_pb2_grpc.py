@@ -43,9 +43,9 @@ class LDLMStub(object):
                 request_serializer=ldlm__pb2.UnlockRequest.SerializeToString,
                 response_deserializer=ldlm__pb2.UnlockResponse.FromString,
                 )
-        self.RenewLock = channel.unary_unary(
-                '/ldlm.LDLM/RenewLock',
-                request_serializer=ldlm__pb2.RenewLockRequest.SerializeToString,
+        self.Renew = channel.unary_unary(
+                '/ldlm.LDLM/Renew',
+                request_serializer=ldlm__pb2.RenewRequest.SerializeToString,
                 response_deserializer=ldlm__pb2.LockResponse.FromString,
                 )
 
@@ -71,7 +71,7 @@ class LDLMServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RenewLock(self, request, context):
+    def Renew(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -95,9 +95,9 @@ def add_LDLMServicer_to_server(servicer, server):
                     request_deserializer=ldlm__pb2.UnlockRequest.FromString,
                     response_serializer=ldlm__pb2.UnlockResponse.SerializeToString,
             ),
-            'RenewLock': grpc.unary_unary_rpc_method_handler(
-                    servicer.RenewLock,
-                    request_deserializer=ldlm__pb2.RenewLockRequest.FromString,
+            'Renew': grpc.unary_unary_rpc_method_handler(
+                    servicer.Renew,
+                    request_deserializer=ldlm__pb2.RenewRequest.FromString,
                     response_serializer=ldlm__pb2.LockResponse.SerializeToString,
             ),
     }
@@ -162,7 +162,7 @@ class LDLM(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def RenewLock(request,
+    def Renew(request,
             target,
             options=(),
             channel_credentials=None,
@@ -172,8 +172,8 @@ class LDLM(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/ldlm.LDLM/RenewLock',
-            ldlm__pb2.RenewLockRequest.SerializeToString,
+        return grpc.experimental.unary_unary(request, target, '/ldlm.LDLM/Renew',
+            ldlm__pb2.RenewRequest.SerializeToString,
             ldlm__pb2.LockResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

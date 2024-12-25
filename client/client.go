@@ -294,7 +294,7 @@ func (c *client) Unlock(name string, key string) (bool, error) {
 	return r.Unlocked, rpcErrorToError(r.Error)
 }
 
-// RenewLock attempts to renew a lock with the given name, key, and lock timeout.
+// Renew attempts to renew a lock with the given name, key, and lock timeout.
 //
 // Parameters:
 // - name: The name of the lock to renew.
@@ -304,11 +304,11 @@ func (c *client) Unlock(name string, key string) (bool, error) {
 // Returns:
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock renew fails.
-func (c *client) RenewLock(name string, key string, lockTimeoutSeconds int32) (*Lock, error) {
+func (c *client) Renew(name string, key string, lockTimeoutSeconds int32) (*Lock, error) {
 	r, err := rpcWithRetry(
 		c.maxRetries,
 		func() (*pb.LockResponse, error) {
-			return c.pbc.RenewLock(c.ctx, &pb.RenewLockRequest{
+			return c.pbc.Renew(c.ctx, &pb.RenewRequest{
 				Name: name, Key: key, LockTimeoutSeconds: lockTimeoutSeconds,
 			})
 		},
@@ -430,7 +430,7 @@ func (r *renewer) Start() {
 				close(r.stop)
 				return
 			case <-t.C:
-				if _, err := r.client.RenewLock(r.name, r.key, r.lockTimeoutSeconds); err != nil {
+				if _, err := r.client.Renew(r.name, r.key, r.lockTimeoutSeconds); err != nil {
 					panic("error renewing lock " + r.name + " " + err.Error())
 				}
 			}

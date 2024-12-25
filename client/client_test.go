@@ -53,7 +53,7 @@ func TestLock_HappyPath(t *testing.T) {
 
 	assert.Equal([]*pb.LockRequest{{Name: "test"}}, gClient.lockRequests)
 	assert.Equal([]*pb.UnlockRequest{{Name: "test", Key: l.Key}}, gClient.unlockRequests)
-	assert.Empty(gClient.renewLockRequests)
+	assert.Empty(gClient.renewRequests)
 	assert.Empty(gClient.tryLockRequests)
 
 }
@@ -80,7 +80,7 @@ func TestLock_LockTimeout(t *testing.T) {
 
 	assert.Equal([]*pb.LockRequest{{Name: "test", LockTimeoutSeconds: &to}}, gClient.lockRequests)
 	assert.Equal([]*pb.UnlockRequest{{Name: "test", Key: l.Key}}, gClient.unlockRequests)
-	assert.Empty(gClient.renewLockRequests)
+	assert.Empty(gClient.renewRequests)
 	assert.Empty(gClient.tryLockRequests)
 }
 
@@ -103,10 +103,10 @@ func TestLock_LockTimeoutAutoRenew(t *testing.T) {
 	l.Unlock()
 
 	assert.Equal([]*pb.LockRequest{{Name: "test", LockTimeoutSeconds: &to}}, gClient.lockRequests)
-	assert.Equal([]*pb.RenewLockRequest{
+	assert.Equal([]*pb.RenewRequest{
 		{Name: l.Name, Key: l.Key, LockTimeoutSeconds: to},
 		{Name: l.Name, Key: l.Key, LockTimeoutSeconds: to},
-	}, gClient.renewLockRequests)
+	}, gClient.renewRequests)
 	assert.Equal([]*pb.UnlockRequest{{Name: "test", Key: l.Key}}, gClient.unlockRequests)
 	assert.Empty(gClient.tryLockRequests)
 
@@ -132,7 +132,7 @@ func TestLock_LockTimeoutAutoRenewNotLocked(t *testing.T) {
 	assert.True(isEmptySyncMap(&c.renewMap))
 
 	assert.Equal([]*pb.LockRequest{{Name: "test", WaitTimeoutSeconds: &to, LockTimeoutSeconds: &to}}, gClient.lockRequests)
-	assert.Empty(gClient.renewLockRequests)
+	assert.Empty(gClient.renewRequests)
 	assert.Empty(gClient.unlockRequests)
 	assert.Empty(gClient.tryLockRequests)
 }
@@ -157,7 +157,7 @@ func TestLock_WaitTimeout(t *testing.T) {
 	assert.Equal([]*pb.LockRequest{{Name: "test", WaitTimeoutSeconds: &to}}, gClient.lockRequests)
 	assert.Equal([]*pb.UnlockRequest{{Name: "test", Key: l.Key}}, gClient.unlockRequests)
 	assert.Empty(gClient.tryLockRequests)
-	assert.Empty(gClient.renewLockRequests)
+	assert.Empty(gClient.renewRequests)
 }
 
 func TestLock_WaitTimeoutError(t *testing.T) {
@@ -180,7 +180,7 @@ func TestLock_WaitTimeoutError(t *testing.T) {
 	assert.Equal([]*pb.LockRequest{{Name: "test", WaitTimeoutSeconds: &to}}, gClient.lockRequests)
 	assert.Empty(gClient.unlockRequests)
 	assert.Empty(gClient.tryLockRequests)
-	assert.Empty(gClient.renewLockRequests)
+	assert.Empty(gClient.renewRequests)
 }
 
 func TestTryLock_HappyPath(t *testing.T) {
@@ -200,7 +200,7 @@ func TestTryLock_HappyPath(t *testing.T) {
 
 	assert.Equal([]*pb.TryLockRequest{{Name: "test"}}, gClient.tryLockRequests)
 	assert.Equal([]*pb.UnlockRequest{{Name: "test", Key: l.Key}}, gClient.unlockRequests)
-	assert.Empty(gClient.renewLockRequests)
+	assert.Empty(gClient.renewRequests)
 	assert.Empty(gClient.lockRequests)
 
 }
@@ -226,7 +226,7 @@ func TestTryLock_LockTimeout(t *testing.T) {
 
 	assert.Equal([]*pb.TryLockRequest{{Name: "test", LockTimeoutSeconds: &to}}, gClient.tryLockRequests)
 	assert.Equal([]*pb.UnlockRequest{{Name: "test", Key: l.Key}}, gClient.unlockRequests)
-	assert.Empty(gClient.renewLockRequests)
+	assert.Empty(gClient.renewRequests)
 	assert.Empty(gClient.lockRequests)
 }
 
@@ -249,10 +249,10 @@ func TestTryLock_LockTimeoutAutoRenew(t *testing.T) {
 	l.Unlock()
 
 	assert.Equal([]*pb.TryLockRequest{{Name: "test", LockTimeoutSeconds: &to}}, gClient.tryLockRequests)
-	assert.Equal([]*pb.RenewLockRequest{
+	assert.Equal([]*pb.RenewRequest{
 		{Name: l.Name, Key: l.Key, LockTimeoutSeconds: to},
 		{Name: l.Name, Key: l.Key, LockTimeoutSeconds: to},
-	}, gClient.renewLockRequests)
+	}, gClient.renewRequests)
 	assert.Equal([]*pb.UnlockRequest{{Name: "test", Key: l.Key}}, gClient.unlockRequests)
 	assert.Empty(gClient.lockRequests)
 
@@ -279,7 +279,7 @@ func TestTryLock_LockTimeoutAutoRenewNotLocked(t *testing.T) {
 
 	l.Unlock()
 	assert.Equal([]*pb.TryLockRequest{{Name: "test", LockTimeoutSeconds: &to}}, gClient.tryLockRequests)
-	assert.Empty(gClient.renewLockRequests)
+	assert.Empty(gClient.renewRequests)
 	assert.Empty(gClient.unlockRequests)
 	assert.Empty(gClient.lockRequests)
 }
@@ -305,7 +305,7 @@ func TestTryLock_Error(t *testing.T) {
 	assert.True(isEmptySyncMap(&c.renewMap))
 
 	assert.Equal([]*pb.TryLockRequest{{Name: "test", LockTimeoutSeconds: &to}}, gClient.tryLockRequests)
-	assert.Empty(gClient.renewLockRequests)
+	assert.Empty(gClient.renewRequests)
 	assert.Empty(gClient.unlockRequests)
 	assert.Empty(gClient.lockRequests)
 }
@@ -386,7 +386,7 @@ func TestUnlock_StopRenew(t *testing.T) {
 
 	_, ok := c.renewMap.Load("test")
 	assert.False(t, ok)
-	assert.Len(t, gClient.renewLockRequests, 1)
+	assert.Len(t, gClient.renewRequests, 1)
 
 }
 
@@ -404,7 +404,7 @@ func TestClose(t *testing.T) {
 	assert := assert.New(t)
 	closer, _ := c.conn.(*closer)
 	assert.True(closer.called)
-	assert.Len(gClient.renewLockRequests, 1)
+	assert.Len(gClient.renewRequests, 1)
 
 }
 
@@ -558,29 +558,29 @@ func newTestGrpcClient(lr []*pb.LockResponse, tr []*pb.LockResponse, rr []*pb.Lo
 		ur = []*pb.UnlockResponse{}
 	}
 	return &testGrpcClient{
-		lockResponses:      lr,
-		tryLockResponses:   tr,
-		renewLockResponses: rr,
-		unlockResponses:    ur,
-		lockRequests:       make([]*pb.LockRequest, 0),
-		tryLockRequests:    make([]*pb.TryLockRequest, 0),
-		renewLockRequests:  make([]*pb.RenewLockRequest, 0),
-		unlockRequests:     make([]*pb.UnlockRequest, 0),
+		lockResponses:    lr,
+		tryLockResponses: tr,
+		renewResponses:   rr,
+		unlockResponses:  ur,
+		lockRequests:     make([]*pb.LockRequest, 0),
+		tryLockRequests:  make([]*pb.TryLockRequest, 0),
+		renewRequests:    make([]*pb.RenewRequest, 0),
+		unlockRequests:   make([]*pb.UnlockRequest, 0),
 	}
 }
 
 // implement pb.LDLMClient interface
 type testGrpcClient struct {
 	pb.LDLMClient
-	lockRequests      []*pb.LockRequest
-	tryLockRequests   []*pb.TryLockRequest
-	renewLockRequests []*pb.RenewLockRequest
-	unlockRequests    []*pb.UnlockRequest
+	lockRequests    []*pb.LockRequest
+	tryLockRequests []*pb.TryLockRequest
+	renewRequests   []*pb.RenewRequest
+	unlockRequests  []*pb.UnlockRequest
 
-	lockResponses      []*pb.LockResponse
-	tryLockResponses   []*pb.LockResponse
-	renewLockResponses []*pb.LockResponse
-	unlockResponses    []*pb.UnlockResponse
+	lockResponses    []*pb.LockResponse
+	tryLockResponses []*pb.LockResponse
+	renewResponses   []*pb.LockResponse
+	unlockResponses  []*pb.UnlockResponse
 }
 
 func (t *testGrpcClient) Lock(ctx context.Context, in *pb.LockRequest, opts ...grpc.CallOption) (*pb.LockResponse, error) {
@@ -610,16 +610,16 @@ func (t *testGrpcClient) TryLock(ctx context.Context, in *pb.TryLockRequest, opt
 	return resp, nil
 }
 
-func (t *testGrpcClient) RenewLock(ctx context.Context, in *pb.RenewLockRequest, opts ...grpc.CallOption) (*pb.LockResponse, error) {
-	t.renewLockRequests = append(t.renewLockRequests, in)
+func (t *testGrpcClient) Renew(ctx context.Context, in *pb.RenewRequest, opts ...grpc.CallOption) (*pb.LockResponse, error) {
+	t.renewRequests = append(t.renewRequests, in)
 
-	if len(t.renewLockResponses) == 0 {
+	if len(t.renewResponses) == 0 {
 		return &pb.LockResponse{Name: in.Name, Key: in.Key, Locked: true}, nil
 	}
-	resp := t.renewLockResponses[0]
+	resp := t.renewResponses[0]
 	resp.Name = in.Name
 	resp.Key = in.Key
-	t.renewLockResponses = t.renewLockResponses[1:]
+	t.renewResponses = t.renewResponses[1:]
 
 	return resp, nil
 }

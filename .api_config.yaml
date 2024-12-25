@@ -26,6 +26,6 @@ http:
   - selector: ldlm.LDLM.Unlock
     post: '/v1/unlock'
     body: "*"
-  - selector: ldlm.LDLM.RenewLock
-    post: '/v1/renewlock'
+  - selector: ldlm.LDLM.Renew
+    post: '/v1/renew'
     body: "*"

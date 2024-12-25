@@ -105,17 +105,17 @@ func (s *Service) TryLock(ctx context.Context, req *pb.TryLockRequest) (*pb.Lock
 
 }
 
-// RenewLock renews the lock for a given name and key with a new lock timeout.
+// Renew renews the lock for a given name and key with a new lock timeout.
 //
 // Parameters:
 // - ctx: the context.Context for the request.
-// - req: the *pb.RenewLockRequest containing the name, key, and lock timeout.
+// - req: the *pb.RenewRequest containing the name, key, and lock timeout.
 //
 // Returns:
 // - *pb.LockResponse: the response containing the name, key, locked status, and error.
 // - error: any error that occurred during the renew.
-func (s *Service) RenewLock(ctx context.Context, req *pb.RenewLockRequest) (*pb.LockResponse, error) {
-	lk, err := s.LockServer.RenewLock(ctx, req.Name, req.Key, req.LockTimeoutSeconds)
+func (s *Service) Renew(ctx context.Context, req *pb.RenewRequest) (*pb.LockResponse, error) {
+	lk, err := s.LockServer.Renew(ctx, req.Name, req.Key, req.LockTimeoutSeconds)
 	if lk == nil {
 		lk = new(server.Lock)
 	}

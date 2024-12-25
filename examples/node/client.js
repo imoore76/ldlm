@@ -54,7 +54,7 @@ async function main() {
 
     // Spawn lock renewer
     var lockRenew = setInterval(() => {
-        client.RenewLock({
+        client.Renew({
             name: "work-item1",
             key: lockResponse.key,
             lock_timeout_seconds: 30,

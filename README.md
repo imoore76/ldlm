@@ -82,7 +82,7 @@ json
 
 Basic client usage consists of locking and unlocking locks named by the API client. When a lock is obtained, the response contains a `key` that must be used to unlock the lock - it can not be unlocked using any other [key](#lock-keys). See also the <a href="./examples">examples</a> folder.
 
-The API functions are `Lock`, `TryLock`, `Unlock`, and `RenewLock`. Here are some examples in a language I've completely invented for the purpose of this demonstration.
+The API functions are `Lock`, `TryLock`, `Unlock`, and `Renew`. Here are some examples in a language I've completely invented for the purpose of this demonstration.
 
 ```javascript
 resp = client.Lock({
@@ -160,7 +160,7 @@ if (!resp.Locked) {
 renewer = spawn(function() {
     while (true) {
         sleep(240)
-        client.RenewLock({
+        client.Renew({
             Name: resp.Name,
             Key: resp.Key,
             LockTimeoutSeconds: 300,
@@ -484,7 +484,7 @@ When the REST server is enabled, its endpoints are
 | `/session` | `DELETE` | Closes your session in the LDLM REST server and releases any resources and locks associated with it. REST sessions idle for more than 10 minutes (default) will be automatically removed, so calling this endpoint is not absolutely necessary.  |
 | `/v1/lock` | `POST` | Behaves like, and accepts the same parameters as `TryLock`. |
 | `/v1/unlock` | `POST` | Behaves like, and accepts the same parameters as `Unlock`. |
-| `/v1/renewlock` | `POST` | Behaves like, and accepts the same parameters as `RenewLock`. |
+| `/v1/renew` | `POST` | Behaves like, and accepts the same parameters as `Renew`. |
 
 #### Example REST Client Usage
 
@@ -507,7 +507,7 @@ user@host ~$ curl -c cookies.txt -b cookies.txt http://localhost:8080/v1/lock -d
 
 ##### Renew a lock
 ```shell
-user@host ~$ curl -c cookies.txt -b cookies.txt http://localhost:8080/v1/renewlock -d '{"name": "My lock", "lock_timeout_seconds": 120, "key":"180d6028-7bf6-4a0b-a844-4776762c61e0"}'
+user@host ~$ curl -c cookies.txt -b cookies.txt http://localhost:8080/v1/renew -d '{"name": "My lock", "lock_timeout_seconds": 120, "key":"180d6028-7bf6-4a0b-a844-4776762c61e0"}'
 
 {"locked":true, "name":"My lock", "key":"180d6028-7bf6-4a0b-a844-4776762c61e0"}
 ```

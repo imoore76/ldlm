@@ -42,7 +42,7 @@ CLIENT_KEY = "../../testcerts/client_key.pem"
 CA_CERT = "../../testcerts/ca_cert.pem"
 
 
-class RenewLockTimer(Timer):
+class RenewTimer(Timer):
     """
     threading.Timer implementation for renewing a lock
 
@@ -78,13 +78,13 @@ def renew_lock(stub, name: str, key: str, lock_timeout_seconds: int):
     Returns:
             object: The response object returned by the gRPC server indicating the result of the lock attempt.
     """
-    rpc_msg = pb2.RenewLockRequest(
+    rpc_msg = pb2.RenewRequest(
         name=name,
         key=key,
         lock_timeout_seconds=lock_timeout_seconds,
     )
 
-    return rpc_with_retry(stub.RenewLock, rpc_msg)
+    return rpc_with_retry(stub.Renew, rpc_msg)
 
 
 def rpc_with_retry(
@@ -169,7 +169,7 @@ def lock(
             raise
 
     if r.locked and lock_timeout_seconds:
-        timer = RenewLockTimer(stub, name, r.key, lock_timeout_seconds)
+        timer = RenewTimer(stub, name, r.key, lock_timeout_seconds)
         timer.start()
     else:
         timer = None
@@ -225,7 +225,7 @@ def try_lock(stub, name: str, lock_timeout_seconds: int = 0):
     r = rpc_with_retry(stub.TryLock, rpc_msg)
 
     if r.locked and lock_timeout_seconds:
-        timer = RenewLockTimer(stub, name, r.key, lock_timeout_seconds)
+        timer = RenewTimer(stub, name, r.key, lock_timeout_seconds)
         timer.start()
     else:
         timer = None

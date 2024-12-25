@@ -419,7 +419,7 @@ type testGrpcServer struct {
 	tLockRes *pb.LockResponse
 	uLockRes *pb.UnlockResponse
 
-	rLockCall *pb.RenewLockRequest
+	rLockCall *pb.RenewRequest
 	tLockCall *pb.TryLockRequest
 	uLockCall *pb.UnlockRequest
 
@@ -434,7 +434,7 @@ func (g *testGrpcServer) HandleConn(ctx context.Context, s stats.ConnStats) {
 func (g *testGrpcServer) Lock(ctx context.Context, req *pb.LockRequest) (*pb.LockResponse, error) {
 	return &pb.LockResponse{}, nil
 }
-func (g *testGrpcServer) RenewLock(ctx context.Context, req *pb.RenewLockRequest) (*pb.LockResponse, error) {
+func (g *testGrpcServer) Renew(ctx context.Context, req *pb.RenewRequest) (*pb.LockResponse, error) {
 	g.rLockCall = req
 	return g.rLockRes, nil
 }

@@ -476,7 +476,7 @@ func TestLockTimerRenew(t *testing.T) {
 				renewStopped <- struct{}{}
 				return
 			default:
-				res, err := s.RenewLock(client1.ctx, "testlock", lockKey, 1)
+				res, err := s.Renew(client1.ctx, "testlock", lockKey, 1)
 				assert.Nil(err)
 				assert.True(res.Locked, "Client1 should have renewed lock")
 			}
