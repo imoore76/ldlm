@@ -330,8 +330,8 @@ func (l *LockServer) TryLock(ctx context.Context, name string, size *int32, lock
 
 }
 
-// RefreshLock refreshes a lock timer
-func (l *LockServer) RefreshLock(ctx context.Context, name string, key string, lockTimeoutSeconds int32) (*Lock, error) {
+// RenewLock renews a lock timer
+func (l *LockServer) RenewLock(ctx context.Context, name string, key string, lockTimeoutSeconds int32) (*Lock, error) {
 
 	if lockTimeoutSeconds <= 0 {
 		return nil, ErrInvalidLockTimeout
@@ -339,20 +339,20 @@ func (l *LockServer) RefreshLock(ctx context.Context, name string, key string, l
 
 	ctxLog := log.FromContextOrDefault(ctx)
 	ctxLog.Info(
-		"RefreshLock request",
+		"RenewLock request",
 		"lock", name,
 		"key", key,
 		"timeout", lockTimeoutSeconds,
 	)
 
-	locked, err := l.lockTimerMgr.Refresh(name+key, time.Duration(lockTimeoutSeconds)*time.Second)
+	locked, err := l.lockTimerMgr.Renew(name+key, time.Duration(lockTimeoutSeconds)*time.Second)
 
 	if err == timer.ErrTimerDoesNotExist {
 		err = ErrLockDoesNotExistOrInvalidKey
 	}
 
 	ctxLog.Info(
-		"RefreshLock response",
+		"RenewLock response",
 		"lock", name,
 		"locked", locked,
 		"error", err,

@@ -63,7 +63,7 @@ message UnlockResponse {
   optional Error error = 3;
 }
 
-message RefreshLockRequest {
+message RenewLockRequest {
   string name = 1;
   string key = 2;
   int32 lock_timeout_seconds = 100;
@@ -73,5 +73,5 @@ service LDLM {
   rpc Lock(LockRequest) returns (LockResponse) { }
   rpc TryLock(TryLockRequest) returns (LockResponse) { }
   rpc Unlock(UnlockRequest) returns (UnlockResponse) { }
-  rpc RefreshLock(RefreshLockRequest) returns (LockResponse) {}
+  rpc RenewLock(RenewLockRequest) returns (LockResponse) {}
 }

@@ -52,9 +52,9 @@ async function main() {
 
     console.log(lockResponse);
 
-    // Spawn lock refresher
-    var lockRefresh = setInterval(() => {
-        client.RefreshLock({
+    // Spawn lock renewer
+    var lockRenew = setInterval(() => {
+        client.RenewLock({
             name: "work-item1",
             key: lockResponse.key,
             lock_timeout_seconds: 30,
@@ -62,7 +62,7 @@ async function main() {
             if (err) {
                 throw new Error(err);
             } else {
-                console.log("Refreshed lock", res);
+                console.log("Renewed lock", res);
             }
         })
     }, 10000);
@@ -72,8 +72,8 @@ async function main() {
     await new Promise(resolve => setTimeout(resolve, 60000));
     console.log("Finished doing work on work-item1...");
 
-    // Clear lock refresher
-    clearInterval(lockRefresh);
+    // Clear lock renewer
+    clearInterval(lockRenew);
 
     // Unlock work item
     await client.Unlock({ name: "work-item1", key: lockResponse.key }, function (err, res) {

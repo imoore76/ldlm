@@ -446,7 +446,7 @@ func TestLockTimerTimeout(t *testing.T) {
 	assert.True(unlocked, "lock should be unlocked")
 }
 
-func TestLockTimerRefresh(t *testing.T) {
+func TestLockTimerRenew(t *testing.T) {
 	assert := assert.New(t)
 
 	c := getTestConfig(nil)
@@ -465,20 +465,20 @@ func TestLockTimerRefresh(t *testing.T) {
 	assert.True(res.Locked, "Client1 should have obtained lock")
 	lockKey := res.Key
 
-	refreshStop := make(chan struct{})
-	refreshStopped := make(chan struct{})
+	renewStop := make(chan struct{})
+	renewStopped := make(chan struct{})
 	go func() {
 		// Wait for lock
 		for {
 			time.Sleep(500 * time.Millisecond)
 			select {
-			case <-refreshStop:
-				refreshStopped <- struct{}{}
+			case <-renewStop:
+				renewStopped <- struct{}{}
 				return
 			default:
-				res, err := s.RefreshLock(client1.ctx, "testlock", lockKey, 1)
+				res, err := s.RenewLock(client1.ctx, "testlock", lockKey, 1)
 				assert.Nil(err)
-				assert.True(res.Locked, "Client1 should have refreshed lock")
+				assert.True(res.Locked, "Client1 should have renewed lock")
 			}
 		}
 	}()
@@ -505,8 +505,8 @@ func TestLockTimerRefresh(t *testing.T) {
 	}()
 
 	time.Sleep(3 * time.Second)
-	refreshStop <- struct{}{}
-	<-refreshStopped
+	renewStop <- struct{}{}
+	<-renewStopped
 
 	<-lockObtained
 

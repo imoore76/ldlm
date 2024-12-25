@@ -26,16 +26,16 @@ namespace Ldlm
 {
     class Program
     {
-        // Task for refreshing a lock
-        static async Task RefreshLock(LDLM.LDLMClient client, RefreshLockRequest req, CancellationToken cancellationToken)
+        // Task for renewing a lock
+        static async Task RenewLock(LDLM.LDLMClient client, RenewLockRequest req, CancellationToken cancellationToken)
         {
             var interval = Math.Max(req.LockTimeoutSeconds - 30, 10);
             while (true)
             {
                 await Task.Delay((int)interval * 1000, cancellationToken);
-                var res = await client.RefreshLockAsync(req);
+                var res = await client.RenewLockAsync(req);
                 if (res.Locked) {
-                    Console.WriteLine("Refreshed lock {0} with key {1}", req.Name, req.Key);
+                    Console.WriteLine("Renewed lock {0} with key {1}", req.Name, req.Key);
                 }
             }
         }
@@ -56,11 +56,11 @@ namespace Ldlm
 
             Console.WriteLine(LockRes);
 
-            // Spawn refresh task
+            // Spawn renew task
             var c = new CancellationTokenSource();
-            var refreshTask = Program.RefreshLock(
+            var renewTask = Program.RenewLock(
                 client, 
-                new RefreshLockRequest { 
+                new RenewLockRequest { 
                     Name = "task-1",
                     Key = LockRes.Key,
                     LockTimeoutSeconds = 30 
@@ -73,7 +73,7 @@ namespace Ldlm
             await Task.Delay(60000);
             Console.WriteLine("Done doing work...");
 
-            // Stop lock refresh task
+            // Stop lock renew task
             c.Cancel();
 
             // Unlock "task-1"

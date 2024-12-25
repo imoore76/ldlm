@@ -147,10 +147,10 @@ func (h *restHandler) ValidateSession(w http.ResponseWriter, r *http.Request) (*
 		return nil, false
 	}
 
-	// Refresh the timer. If the timer has expired, the session is no longer valid
+	// Renew the timer. If the timer has expired, the session is no longer valid
 	h.sessionsMtx.Lock()
 	defer h.sessionsMtx.Unlock()
-	ok, err := h.timerMgr.Refresh(sessionId.Value, h.sessionExpiration)
+	ok, err := h.timerMgr.Renew(sessionId.Value, h.sessionExpiration)
 	if !ok || err != nil {
 		w.Header().Add("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized) // 401

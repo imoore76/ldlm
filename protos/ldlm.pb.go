@@ -464,7 +464,7 @@ func (x *UnlockResponse) GetError() *Error {
 	return nil
 }
 
-type RefreshLockRequest struct {
+type RenewLockRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -474,20 +474,20 @@ type RefreshLockRequest struct {
 	LockTimeoutSeconds int32  `protobuf:"varint,100,opt,name=lock_timeout_seconds,json=lockTimeoutSeconds,proto3" json:"lock_timeout_seconds,omitempty"`
 }
 
-func (x *RefreshLockRequest) Reset() {
-	*x = RefreshLockRequest{}
+func (x *RenewLockRequest) Reset() {
+	*x = RenewLockRequest{}
 	mi := &file_ldlm_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RefreshLockRequest) String() string {
+func (x *RenewLockRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RefreshLockRequest) ProtoMessage() {}
+func (*RenewLockRequest) ProtoMessage() {}
 
-func (x *RefreshLockRequest) ProtoReflect() protoreflect.Message {
+func (x *RenewLockRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_ldlm_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -499,26 +499,26 @@ func (x *RefreshLockRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RefreshLockRequest.ProtoReflect.Descriptor instead.
-func (*RefreshLockRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use RenewLockRequest.ProtoReflect.Descriptor instead.
+func (*RenewLockRequest) Descriptor() ([]byte, []int) {
 	return file_ldlm_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *RefreshLockRequest) GetName() string {
+func (x *RenewLockRequest) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *RefreshLockRequest) GetKey() string {
+func (x *RenewLockRequest) GetKey() string {
 	if x != nil {
 		return x.Key
 	}
 	return ""
 }
 
-func (x *RefreshLockRequest) GetLockTimeoutSeconds() int32 {
+func (x *RenewLockRequest) GetLockTimeoutSeconds() int32 {
 	if x != nil {
 		return x.LockTimeoutSeconds
 	}
@@ -627,14 +627,14 @@ func file_ldlm_proto_rawDescGZIP() []byte {
 var file_ldlm_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_ldlm_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_ldlm_proto_goTypes = []any{
-	(ErrorCode)(0),             // 0: ldlm.ErrorCode
-	(*Error)(nil),              // 1: ldlm.Error
-	(*LockRequest)(nil),        // 2: ldlm.LockRequest
-	(*TryLockRequest)(nil),     // 3: ldlm.TryLockRequest
-	(*LockResponse)(nil),       // 4: ldlm.LockResponse
-	(*UnlockRequest)(nil),      // 5: ldlm.UnlockRequest
-	(*UnlockResponse)(nil),     // 6: ldlm.UnlockResponse
-	(*RefreshLockRequest)(nil), // 7: ldlm.RefreshLockRequest
+	(ErrorCode)(0),           // 0: ldlm.ErrorCode
+	(*Error)(nil),            // 1: ldlm.Error
+	(*LockRequest)(nil),      // 2: ldlm.LockRequest
+	(*TryLockRequest)(nil),   // 3: ldlm.TryLockRequest
+	(*LockResponse)(nil),     // 4: ldlm.LockResponse
+	(*UnlockRequest)(nil),    // 5: ldlm.UnlockRequest
+	(*UnlockResponse)(nil),   // 6: ldlm.UnlockResponse
+	(*RenewLockRequest)(nil), // 7: ldlm.RenewLockRequest
 }
 var file_ldlm_proto_depIdxs = []int32{
 	0, // 0: ldlm.Error.code:type_name -> ldlm.ErrorCode
@@ -643,11 +643,11 @@ var file_ldlm_proto_depIdxs = []int32{
 	2, // 3: ldlm.LDLM.Lock:input_type -> ldlm.LockRequest
 	3, // 4: ldlm.LDLM.TryLock:input_type -> ldlm.TryLockRequest
 	5, // 5: ldlm.LDLM.Unlock:input_type -> ldlm.UnlockRequest
-	7, // 6: ldlm.LDLM.RefreshLock:input_type -> ldlm.RefreshLockRequest
+	7, // 6: ldlm.LDLM.RenewLock:input_type -> ldlm.RenewLockRequest
 	4, // 7: ldlm.LDLM.Lock:output_type -> ldlm.LockResponse
 	4, // 8: ldlm.LDLM.TryLock:output_type -> ldlm.LockResponse
 	6, // 9: ldlm.LDLM.Unlock:output_type -> ldlm.UnlockResponse
-	4, // 10: ldlm.LDLM.RefreshLock:output_type -> ldlm.LockResponse
+	4, // 10: ldlm.LDLM.RenewLock:output_type -> ldlm.LockResponse
 	7, // [7:11] is the sub-list for method output_type
 	3, // [3:7] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name

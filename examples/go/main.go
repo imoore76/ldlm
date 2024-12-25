@@ -25,26 +25,26 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func lockRefresher(c pb.LDLMClient, ctx context.Context, name string, key string, timeout_seconds int32) func() {
+func lockRenewer(c pb.LDLMClient, ctx context.Context, name string, key string, timeout_seconds int32) func() {
 
 	interval := max(timeout_seconds-30, 10)
 	stopCh := make(chan struct{}, 1)
 	go func() {
-		defer fmt.Println("Stopped refreshing lock")
+		defer fmt.Println("Stopped renewing lock")
 		for {
 			select {
 			case <-time.After(time.Duration(interval) * time.Second):
-				r, err := c.RefreshLock(ctx, &pb.RefreshLockRequest{
+				r, err := c.RenewLock(ctx, &pb.RenewLockRequest{
 					Name:               name,
 					Key:                key,
 					LockTimeoutSeconds: timeout_seconds,
 				})
 				if err != nil {
-					fmt.Printf("Error refreshing lock: %v\n", err)
+					fmt.Printf("Error renewing lock: %v\n", err)
 					return
 				}
 				if !r.Locked {
-					fmt.Printf("Could not refresh lock: %v\n", r.Error)
+					fmt.Printf("Could not renew lock: %v\n", r.Error)
 					return
 				}
 			case <-stopCh:
@@ -54,7 +54,7 @@ func lockRefresher(c pb.LDLMClient, ctx context.Context, name string, key string
 		}
 	}()
 	return func() {
-		fmt.Println("Stopping refreshing lock")
+		fmt.Println("Stopping renewing lock")
 		stopCh <- struct{}{}
 	}
 }
@@ -86,7 +86,7 @@ func main() {
 		panic(fmt.Sprintf("Could not lock work-item1: %v", r.Error))
 	}
 
-	closer := lockRefresher(client, ctx, "work-item1", r.Key, lockTimeout)
+	closer := lockRenewer(client, ctx, "work-item1", r.Key, lockTimeout)
 	defer closer()
 
 	defer client.Unlock(ctx, &pb.UnlockRequest{

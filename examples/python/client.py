@@ -40,14 +40,14 @@ from threading import Timer
 PASSWORD = "secret"
 
 
-class RefreshLockTimer(Timer):
+class RenewLockTimer(Timer):
     """
-    threading.Timer implementation for refreshing a lock
+    threading.Timer implementation for renewing a lock
 
     Parameters:
             stub (object): The gRPC stub object used to communicate with the server.
-            name (str): The name of the lock to refresh.
-            key (str): The key associated with the lock to refresh.
+            name (str): The name of the lock to renew.
+            key (str): The key associated with the lock to renew.
             lock_timeout_seconds (int): The timeout in seconds for acquiring the lock.
 
     """
@@ -55,7 +55,7 @@ class RefreshLockTimer(Timer):
     def __init__(self, stub: object, name: str, key: str, lock_timeout_seconds: int):
         interval = max(lock_timeout_seconds - 30, 10)
         super().__init__(
-            interval, refresh_lock, args=(stub, name, key, lock_timeout_seconds)
+            interval, renew_lock, args=(stub, name, key, lock_timeout_seconds)
         )
 
     def run(self):
@@ -63,26 +63,26 @@ class RefreshLockTimer(Timer):
             self.function(*self.args, **self.kwargs)
 
 
-def refresh_lock(stub, name: str, key: str, lock_timeout_seconds: int):
+def renew_lock(stub, name: str, key: str, lock_timeout_seconds: int):
     """
-    Attempts to refresh a lock.
+    Attempts to renew a lock.
 
     Args:
             stub (object): The gRPC stub object used to communicate with the server.
-            name (str): The name of the lock to refresh.
-            key (str): The key associated with the lock to refresh.
+            name (str): The name of the lock to renew.
+            key (str): The key associated with the lock to renew.
             lock_timeout_seconds (int): The timeout in seconds for acquiring the lock.
 
     Returns:
             object: The response object returned by the gRPC server indicating the result of the lock attempt.
     """
-    rpc_msg = pb2.RefreshLockRequest(
+    rpc_msg = pb2.RenewLockRequest(
         name=name,
         key=key,
         lock_timeout_seconds=lock_timeout_seconds,
     )
 
-    return rpc_with_retry(stub.RefreshLock, rpc_msg)
+    return rpc_with_retry(stub.RenewLock, rpc_msg)
 
 
 def rpc_with_retry(
@@ -134,7 +134,7 @@ def lock(
         stub (object): The gRPC stub object used to communicate with the server.
         name (str): The name of the lock to acquire.
         wait_timeout_seconds (int, optional): How long to wait to acquire lock. Defaults to 0 - no timeout.
-        lock_timeout_seconds (int, optional): The lifetime of the lock in seconds (refresh to renew). Defaults to 0 - no timeout.
+        lock_timeout_seconds (int, optional): The lifetime of the lock in seconds (renew to renew). Defaults to 0 - no timeout.
         raise_on_wait_timeout (bool, optional): Whether to raise a LockTimeoutError if the wait timeout is exceeded. Defaults to False.
 
     Yields:
@@ -167,7 +167,7 @@ def lock(
             raise
 
     if r.locked and lock_timeout_seconds:
-        timer = RefreshLockTimer(stub, name, r.key, lock_timeout_seconds)
+        timer = RenewLockTimer(stub, name, r.key, lock_timeout_seconds)
         timer.start()
     else:
         timer = None
@@ -199,7 +199,7 @@ def try_lock(stub, name: str, lock_timeout_seconds: int = 0):
     Args:
         stub (object): The gRPC stub object used to communicate with the server.
         name (str): The name of the lock to acquire.
-        lock_timeout_seconds (int, optional): The lifetime of the lock in seconds (refresh to renew). Defaults to 0 - no timeout.
+        lock_timeout_seconds (int, optional): The lifetime of the lock in seconds (renew to renew). Defaults to 0 - no timeout.
 
     Yields:
         object: The response object returned by the gRPC server indicating the result of the lock attempt.
@@ -223,7 +223,7 @@ def try_lock(stub, name: str, lock_timeout_seconds: int = 0):
     r = rpc_with_retry(stub.TryLock, rpc_msg)
 
     if r.locked and lock_timeout_seconds:
-        timer = RefreshLockTimer(stub, name, r.key, lock_timeout_seconds)
+        timer = RenewLockTimer(stub, name, r.key, lock_timeout_seconds)
         timer.start()
     else:
         timer = None

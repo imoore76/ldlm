@@ -31,7 +31,7 @@ The client also takes an arbitrary number of gRPC [dial options](https://pkg.go.
 | :--- | :--- | :--- |
 | `Address` | string  | host:port address of ldlm server |
 | `Password` |  string  | Password to use for LDLM server |
-| `NoAutoRefresh`  | bool  |  Don't automatically refresh locks in a background goroutine when a lock timeout is specified for a lock |
+| `NoAutoRenew`  | bool  |  Don't automatically renew locks in a background goroutine when a lock timeout is specified for a lock |
 | `UseTls`    |  bool  |  Use TLS to connect to the server |
 | `SkipVerify`  | bool  |  Don't verify the server's certificate |
 | `CAFile`   | string |  File containing a CA certificate |
@@ -44,9 +44,9 @@ The client also takes an arbitrary number of gRPC [dial options](https://pkg.go.
 
 Locks in an LDLM server generally live until the client unlocks the lock or disconnects. If a client dies while holding a lock, the disconnection is detected and handled in LDLM by releasing the lock.
 
-Depending on your LDLM server configuration, this feature may be disabled and `LockTimeoutSeconds` would be used to specify the maximum amount of time a lock can remain locked without being refreshed. The client will take care of refreshing locks in the background for you unless you've specified `NoAutoRefresh` in the client's options. Otherwise, you must periodically call `RefreshLock(...)` yourself &lt; the lock timeout interval.
+Depending on your LDLM server configuration, this feature may be disabled and `LockTimeoutSeconds` would be used to specify the maximum amount of time a lock can remain locked without being renewed. The client will take care of renewing locks in the background for you unless you've specified `NoAutoRenew` in the client's options. Otherwise, you must periodically call `RenewLock(...)` yourself &lt; the lock timeout interval.
 
-To `Unlock()` or refresh a lock, you must use the lock key that was issued from the lock request's response. Using a Lock object's `Unlock()` method takes care of this for you. This is exemplified further in the following sections.
+To `Unlock()` or renew a lock, you must use the lock key that was issued from the lock request's response. Using a Lock object's `Unlock()` method takes care of this for you. This is exemplified further in the following sections.
 
 ### Lock Object
 
@@ -141,7 +141,7 @@ defer lock.Unlock()
 
 
 ### Unlock
-`Unlock()` unlocks the specified lock and stops any lock refresh job that may be associated with the lock. It must be passed the key that was issued when the lock was acquired. Using a different key will result in an error returned from LDLM. Since an `Unlock()` method is available on `Lock` objects returned by the client, calling this directly should not be needed.
+`Unlock()` unlocks the specified lock and stops any lock renew job that may be associated with the lock. It must be passed the key that was issued when the lock was acquired. Using a different key will result in an error returned from LDLM. Since an `Unlock()` method is available on `Lock` objects returned by the client, calling this directly should not be needed.
 
 `Unlock()` accepts the following arguments.
 
@@ -158,8 +158,8 @@ Simple unlock
 unlocked, err := c.Unlock("my_task", lock.key)
 ```
 
-### Refresh Lock
-As explained in [Basic Concepts](#basic-concepts), you may specify a lock timeout using a `LockTimeoutSeconds` argument to any of the `*Lock*()` methods. When you do this, the client will refresh the lock in the background without you having to do anything. If, for some reason, you want to disable auto refresh (`NoAutoRefresh=true` in client Config), you will have to refresh the lock before it times out using the `RefreshLock()` method.
+### Renew Lock
+As explained in [Basic Concepts](#basic-concepts), you may specify a lock timeout using a `LockTimeoutSeconds` argument to any of the `*Lock*()` methods. When you do this, the client will renew the lock in the background without you having to do anything. If, for some reason, you want to disable auto renew (`NoAutoRenew=true` in client Config), you will have to renew the lock before it times out using the `RenewLock()` method.
 
 It takes the following arguments
 
@@ -187,13 +187,13 @@ defer lock.Unlock()
 
 // do some work, then
 
-if _, err := c.RefreshLock("task1-lock", lock.Key, 300); err != nil {
+if _, err := c.RenewLock("task1-lock", lock.Key, 300); err != nil {
     panic(err)
 }
 
 // do some more work, then
 
-if _, err := c.RefreshLock("task1-lock", lock.Key, 300); err != nil {
+if _, err := c.RenewLock("task1-lock", lock.Key, 300); err != nil {
     panic(err)
 }
 

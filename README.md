@@ -82,7 +82,7 @@ json
 
 Basic client usage consists of locking and unlocking locks named by the API client. When a lock is obtained, the response contains a `key` that must be used to unlock the lock - it can not be unlocked using any other [key](#lock-keys). See also the <a href="./examples">examples</a> folder.
 
-The API functions are `Lock`, `TryLock`, `Unlock`, and `RefreshLock`. Here are some examples in a language I've completely invented for the purpose of this demonstration.
+The API functions are `Lock`, `TryLock`, `Unlock`, and `RenewLock`. Here are some examples in a language I've completely invented for the purpose of this demonstration.
 
 ```javascript
 resp = client.Lock({
@@ -145,7 +145,7 @@ if (!resp.Locked) {
 
 #### LockTimeoutSeconds
 
-The number of seconds before a lock will be automatically unlocked if not refreshed. 
+The number of seconds before a lock will be automatically unlocked if not renewed. 
 
 ```javascript
 resp = client.Lock({
@@ -157,10 +157,10 @@ if (!resp.Locked) {
     return
 }
 
-refresher = spawn(function() {
+renewer = spawn(function() {
     while (true) {
         sleep(240)
-        client.RefreshLock({
+        client.RenewLock({
             Name: resp.Name,
             Key: resp.Key,
             LockTimeoutSeconds: 300,
@@ -173,7 +173,7 @@ refresher = spawn(function() {
 //
 RunLongJob(workItem)
 
-refresher.stop()
+renewer.stop()
 
 resp = client.Unlock({
         Name: resp.Name,
@@ -297,7 +297,7 @@ Limit request rate to a service using locks:
 
 // Client-enforced rate limit of 30 requests per minute. Assuming multiple clients
 // distributed across processes / machines / containers. Be sure to disable the
-// auto_lock_refresh option when instantiating the LDLM client.
+// auto_lock_renew option when instantiating the LDLM client.
 client.Lock({
     Name: "ExpensiveServiceRequest",
     Size: 30,
@@ -317,7 +317,7 @@ Limit request rate to a an using locks:
 ```javascript
 // Server-enforced rate limit of 30 requests per minute. Assuming multiple servers
 // distributed across processes / machines / containers. Be sure to disable the
-// auto_lock_refresh option when instantiating the LDLM client.
+// auto_lock_renew option when instantiating the LDLM client.
 
 lock = client.TryLock({
     Name: "ExpensiveAPICall",
@@ -484,7 +484,7 @@ When the REST server is enabled, its endpoints are
 | `/session` | `DELETE` | Closes your session in the LDLM REST server and releases any resources and locks associated with it. REST sessions idle for more than 10 minutes (default) will be automatically removed, so calling this endpoint is not absolutely necessary.  |
 | `/v1/lock` | `POST` | Behaves like, and accepts the same parameters as `TryLock`. |
 | `/v1/unlock` | `POST` | Behaves like, and accepts the same parameters as `Unlock`. |
-| `/v1/refreshlock` | `POST` | Behaves like, and accepts the same parameters as `RefreshLock`. |
+| `/v1/renewlock` | `POST` | Behaves like, and accepts the same parameters as `RenewLock`. |
 
 #### Example REST Client Usage
 
@@ -505,9 +505,9 @@ user@host ~$ curl -c cookies.txt -b cookies.txt http://localhost:8080/v1/lock -d
 {"locked":true, "name":"My lock", "key":"180d6028-7bf6-4a0b-a844-4776762c61e0"}
 ```
 
-##### Refresh a lock
+##### Renew a lock
 ```shell
-user@host ~$ curl -c cookies.txt -b cookies.txt http://localhost:8080/v1/refreshlock -d '{"name": "My lock", "lock_timeout_seconds": 120, "key":"180d6028-7bf6-4a0b-a844-4776762c61e0"}'
+user@host ~$ curl -c cookies.txt -b cookies.txt http://localhost:8080/v1/renewlock -d '{"name": "My lock", "lock_timeout_seconds": 120, "key":"180d6028-7bf6-4a0b-a844-4776762c61e0"}'
 
 {"locked":true, "name":"My lock", "key":"180d6028-7bf6-4a0b-a844-4776762c61e0"}
 ```
