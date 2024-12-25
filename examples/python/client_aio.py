@@ -58,7 +58,7 @@ class RenewTimer:
 
     def __init__(self, stub: object, name: str, key: str, lock_timeout_seconds: int):
         self.interval = max(lock_timeout_seconds - 30, 10)
-        self.fn = functools.partial(renew_lock, stub, name, key, lock_timeout_seconds)
+        self.fn = functools.partial(renew, stub, name, key, lock_timeout_seconds)
 
     async def start(self):
         self.task = asyncio.create_task(self.run())
@@ -73,7 +73,7 @@ class RenewTimer:
             self.task.cancel()
 
 
-async def renew_lock(stub, name: str, key: str, lock_timeout_seconds: int):
+async def renew(stub, name: str, key: str, lock_timeout_seconds: int):
     """
     Attempts to renew a lock.
 

@@ -55,7 +55,7 @@ class RenewTimer(Timer):
     def __init__(self, stub: object, name: str, key: str, lock_timeout_seconds: int):
         interval = max(lock_timeout_seconds - 30, 10)
         super().__init__(
-            interval, renew_lock, args=(stub, name, key, lock_timeout_seconds)
+            interval, renew, args=(stub, name, key, lock_timeout_seconds)
         )
 
     def run(self):
@@ -63,7 +63,7 @@ class RenewTimer(Timer):
             self.function(*self.args, **self.kwargs)
 
 
-def renew_lock(stub, name: str, key: str, lock_timeout_seconds: int):
+def renew(stub, name: str, key: str, lock_timeout_seconds: int):
     """
     Attempts to renew a lock.
 
