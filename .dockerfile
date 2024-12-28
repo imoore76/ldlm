@@ -15,7 +15,7 @@ FROM --platform=${TARGETPLATFORM:-linux/amd64} debian:bookworm-slim
 COPY --from=builder /dist/ldlm-server /usr/bin/ldlm-server
 COPY --from=builder /dist/ldlm-lock /usr/bin/ldlm-lock
 
-LABEL org.opencontainers.image.source=https://github.com/imoore76/go-ldlm
+LABEL org.opencontainers.image.source=https://github.com/imoore76/ldlm
 LABEL org.opencontainers.image.description="LDLM server"
 LABEL org.opencontainers.image.licenses="Apache 2.0"
 

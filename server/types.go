@@ -22,9 +22,9 @@ import (
 	"context"
 	"time"
 
-	cl "github.com/imoore76/go-ldlm/server/clientlock"
-	"github.com/imoore76/go-ldlm/server/ipc"
-	"github.com/imoore76/go-ldlm/server/session"
+	cl "github.com/imoore76/ldlm/server/clientlock"
+	"github.com/imoore76/ldlm/server/ipc"
+	"github.com/imoore76/ldlm/server/session"
 )
 
 // For context value key

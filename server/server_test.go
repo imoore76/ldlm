@@ -25,12 +25,12 @@ import (
 	config "github.com/imoore76/configurature"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/imoore76/go-ldlm/constants"
-	"github.com/imoore76/go-ldlm/lock"
-	_ "github.com/imoore76/go-ldlm/log"
-	"github.com/imoore76/go-ldlm/server"
-	cl "github.com/imoore76/go-ldlm/server/clientlock"
-	"github.com/imoore76/go-ldlm/server/session/store"
+	"github.com/imoore76/ldlm/constants"
+	"github.com/imoore76/ldlm/lock"
+	_ "github.com/imoore76/ldlm/log"
+	"github.com/imoore76/ldlm/server"
+	cl "github.com/imoore76/ldlm/server/clientlock"
+	"github.com/imoore76/ldlm/server/session/store"
 )
 
 var defaultTestOpts = map[string]string{

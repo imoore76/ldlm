@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/imoore76/go-ldlm/lock"
+	"github.com/imoore76/ldlm/lock"
 	"github.com/stretchr/testify/assert"
 )
 

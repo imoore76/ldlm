@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	pb "github.com/imoore76/go-ldlm/protos"
+	pb "github.com/imoore76/ldlm/protos"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

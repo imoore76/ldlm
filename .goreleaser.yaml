@@ -45,7 +45,7 @@ checksum:
 
 nfpms:
   - vendor: imoore76@yahoo.com
-    homepage: https://github.com/imoore76/go-ldlm
+    homepage: https://github.com/imoore76/ldlm
     maintainer: Ian Moore <imoore76@yahoo.com>
     description: Light weight Distributed Lock Manager server implemented over gRPC and REST
     license: Apache 2.0

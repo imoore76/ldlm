@@ -10,7 +10,7 @@ Full documentation is available at http://ldlm.readthedocs.io/
 
 ## Installation
 
-Download and install the latest release from [github](https://github.com/imoore76/go-ldlm/releases/latest) for your platform. Packages for linux distributions are also available there.
+Download and install the latest release from [github](https://github.com/imoore76/ldlm/releases/latest) for your platform. Packages for linux distributions are also available there.
 
 For containerized environments, the docker image `ian76/ldlm:latest` is available from [dockerhub](https://hub.docker.com/r/ian76/ldlm).
 ```

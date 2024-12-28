@@ -29,8 +29,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/stats"
 
-	sec "github.com/imoore76/go-ldlm/net/security"
-	pb "github.com/imoore76/go-ldlm/protos"
+	sec "github.com/imoore76/ldlm/net/security"
+	pb "github.com/imoore76/ldlm/protos"
 )
 
 func TestSessionCreate(t *testing.T) {

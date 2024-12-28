@@ -23,8 +23,8 @@ import (
 	"maps"
 	"sync"
 
-	cl "github.com/imoore76/go-ldlm/server/clientlock"
-	"github.com/imoore76/go-ldlm/server/session/store"
+	cl "github.com/imoore76/ldlm/server/clientlock"
+	"github.com/imoore76/ldlm/server/session/store"
 )
 
 // SessionConfig defines the configuration for a sessionManager instance

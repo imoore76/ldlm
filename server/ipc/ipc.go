@@ -22,7 +22,7 @@ import (
 	"fmt"
 	log "log/slog"
 
-	"github.com/imoore76/go-ldlm/lock"
+	"github.com/imoore76/ldlm/lock"
 )
 
 type (

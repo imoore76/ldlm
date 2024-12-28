@@ -11,7 +11,7 @@ Numerous installation options exist for LDLM.
 
 .. |github_releases| raw:: html
 
-    <a href="https://github.com/imoore76/go-ldlm/releases/latest" target="_blank">github releases</a>
+    <a href="https://github.com/imoore76/ldlm/releases/latest" target="_blank">github releases</a>
 
 .. |dockerhub| raw:: html
 

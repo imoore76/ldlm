@@ -24,10 +24,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	co "github.com/imoore76/go-ldlm/constants"
-	_ "github.com/imoore76/go-ldlm/log"
-	cl "github.com/imoore76/go-ldlm/server/clientlock"
-	"github.com/imoore76/go-ldlm/server/ipc"
+	co "github.com/imoore76/ldlm/constants"
+	_ "github.com/imoore76/ldlm/log"
+	cl "github.com/imoore76/ldlm/server/clientlock"
+	"github.com/imoore76/ldlm/server/ipc"
 )
 
 var testSocketPath string

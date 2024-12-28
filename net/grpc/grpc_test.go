@@ -29,12 +29,12 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 
-	con "github.com/imoore76/go-ldlm/constants"
-	"github.com/imoore76/go-ldlm/lock"
-	sec "github.com/imoore76/go-ldlm/net/security"
-	pb "github.com/imoore76/go-ldlm/protos"
-	"github.com/imoore76/go-ldlm/server"
-	"github.com/imoore76/go-ldlm/timer"
+	con "github.com/imoore76/ldlm/constants"
+	"github.com/imoore76/ldlm/lock"
+	sec "github.com/imoore76/ldlm/net/security"
+	pb "github.com/imoore76/ldlm/protos"
+	"github.com/imoore76/ldlm/server"
+	"github.com/imoore76/ldlm/timer"
 )
 
 func getSconf() *sec.SecurityConfig {

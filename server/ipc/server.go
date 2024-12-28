@@ -32,7 +32,7 @@ import (
 	"runtime"
 	"sync"
 
-	cl "github.com/imoore76/go-ldlm/server/clientlock"
+	cl "github.com/imoore76/ldlm/server/clientlock"
 )
 
 // errSocketExists is the error returned when a socket file already exists.

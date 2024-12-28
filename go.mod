@@ -1,4 +1,4 @@
-module github.com/imoore76/go-ldlm
+module github.com/imoore76/ldlm
 
 go 1.23.3
 

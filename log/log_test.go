@@ -19,7 +19,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/imoore76/go-ldlm/log"
+	"github.com/imoore76/ldlm/log"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -18,7 +18,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/imoore76/go-ldlm/server"
+	"github.com/imoore76/ldlm/server"
 )
 
 // The struct required to configure the server. See the config package

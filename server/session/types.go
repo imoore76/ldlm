@@ -18,7 +18,7 @@ This file contains common types and interfaces for the session package
 package session
 
 import (
-	cl "github.com/imoore76/go-ldlm/server/clientlock"
+	cl "github.com/imoore76/ldlm/server/clientlock"
 )
 
 // sessionStorer defines the Store interface

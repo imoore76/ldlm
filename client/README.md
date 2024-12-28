@@ -1,12 +1,12 @@
-# go-ldlm Client
+# ldlm Client
 
-`go-ldlm/client` is a go library for communicating with an LDLM server (http://github.com/imoore76/go-ldlm).
+`ldlm/client` is a go library for communicating with an LDLM server (http://github.com/imoore76/ldlm).
 
 ## Installation
 
 ```go
 // your go application
-include "github.com/imoore76/go-ldlm/client"
+include "github.com/imoore76/ldlm/client"
 ```
 
 The just run `go mod tidy`

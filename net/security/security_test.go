@@ -20,8 +20,8 @@ import (
 	config "github.com/imoore76/configurature"
 	"github.com/stretchr/testify/assert"
 
-	con "github.com/imoore76/go-ldlm/constants"
-	"github.com/imoore76/go-ldlm/net/security"
+	con "github.com/imoore76/ldlm/constants"
+	"github.com/imoore76/ldlm/net/security"
 )
 
 func TestRun_UseTLSConfig(t *testing.T) {
