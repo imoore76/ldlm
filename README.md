@@ -6,8 +6,6 @@
 
 LDLM is a **L**ightweight **D**istributed **L**ock **M**anager implemented over gRPC and REST.
 
-Full documentation is available at http://ldlm.readthedocs.io/
-
 ## Installation
 
 Download and install the latest release from [github](https://github.com/imoore76/ldlm/releases/latest) for your platform. Packages for linux distributions are also available there.
@@ -19,6 +17,10 @@ user@host ~$ docker run -p 3144:3144 ian76/ldlm:latest
 {"time":"2024-04-27T03:33:03.434286717Z","level":"INFO","msg":"IPC server started","socket":"/tmp/ldlm-ipc.sock"}
 {"time":"2024-04-27T03:33:03.434402133Z","level":"WARN","msg":"gRPC server started. Listening on 0.0.0.0:3144"}
 ```
+
+## Usage
+
+Full documentation is available at http://ldlm.readthedocs.io/
 
 ## Contributing
 
