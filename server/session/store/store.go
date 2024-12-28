@@ -27,7 +27,7 @@ import (
 	"github.com/deneonet/benc"
 	bstd "github.com/deneonet/benc/std"
 
-	cl "github.com/imoore76/go-ldlm/server/clientlock"
+	cl "github.com/imoore76/ldlm/server/clientlock"
 )
 
 // store provides Read() and Write() functions to read and write

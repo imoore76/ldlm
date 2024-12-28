@@ -9,6 +9,6 @@
 /docs/build
 
 # Added by vscode's C# extension
-/go-ldlm.sln
+/ldlm.sln
 /examples/c#/obj
 /examples/c#/bin

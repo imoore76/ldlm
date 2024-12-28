@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/imoore76/go-ldlm/timer"
+	"github.com/imoore76/ldlm/timer"
 )
 
 func TestManager(t *testing.T) {

@@ -31,11 +31,11 @@ import (
 	"google.golang.org/grpc/stats"
 	"google.golang.org/grpc/status"
 
-	"github.com/imoore76/go-ldlm/lock"
-	"github.com/imoore76/go-ldlm/net/security"
-	pb "github.com/imoore76/go-ldlm/protos"
-	"github.com/imoore76/go-ldlm/server"
-	"github.com/imoore76/go-ldlm/timer"
+	"github.com/imoore76/ldlm/lock"
+	"github.com/imoore76/ldlm/net/security"
+	pb "github.com/imoore76/ldlm/protos"
+	"github.com/imoore76/ldlm/server"
+	"github.com/imoore76/ldlm/timer"
 )
 
 type Service struct {

@@ -15,7 +15,7 @@ Native Clients
 
 .. |golang| raw:: html
 
-    <a href="https://github.com/imoore76/go-ldlm/tree/main/client" target="_blank">Go</a>
+    <a href="https://github.com/imoore76/ldlm/tree/main/client" target="_blank">Go</a>
 
 .. |python| raw:: html
 
@@ -23,7 +23,7 @@ Native Clients
 
 .. |examples| raw:: html
 
-    <a href="https://github.com/imoore76/go-ldlm/tree/main/examples" target="_blank">examples</a>
+    <a href="https://github.com/imoore76/ldlm/tree/main/examples" target="_blank">examples</a>
 
 Native LDLM clients are available for
 

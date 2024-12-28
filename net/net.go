@@ -19,10 +19,10 @@ configured server(s).
 package net
 
 import (
-	"github.com/imoore76/go-ldlm/net/grpc"
-	"github.com/imoore76/go-ldlm/net/rest"
-	sec "github.com/imoore76/go-ldlm/net/security"
-	"github.com/imoore76/go-ldlm/server"
+	"github.com/imoore76/ldlm/net/grpc"
+	"github.com/imoore76/ldlm/net/rest"
+	sec "github.com/imoore76/ldlm/net/security"
+	"github.com/imoore76/ldlm/server"
 )
 
 type NetConfig struct {

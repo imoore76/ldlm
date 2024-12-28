@@ -29,9 +29,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/imoore76/go-ldlm/lock"
-	pb "github.com/imoore76/go-ldlm/protos"
-	"github.com/imoore76/go-ldlm/server"
+	"github.com/imoore76/ldlm/lock"
+	pb "github.com/imoore76/ldlm/protos"
+	"github.com/imoore76/ldlm/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"

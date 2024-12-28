@@ -24,10 +24,10 @@ import (
 	"syscall"
 
 	config "github.com/imoore76/configurature"
-	"github.com/imoore76/go-ldlm/constants"
-	"github.com/imoore76/go-ldlm/log"
-	"github.com/imoore76/go-ldlm/net"
-	"github.com/imoore76/go-ldlm/server"
+	"github.com/imoore76/ldlm/constants"
+	"github.com/imoore76/ldlm/log"
+	"github.com/imoore76/ldlm/net"
+	"github.com/imoore76/ldlm/server"
 )
 
 // Configurature struct for app configuration

@@ -35,7 +35,7 @@ A lock is uniquely identified by its name. This is specified when the lock is re
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"            
+            import "github.com/imoore76/ldlm/client"            
 
             c, err := client.New(context.Background(), client.Config{
                 Address: "localhost:3144",
@@ -74,7 +74,7 @@ number of lock acquisitions to be held on the same lock.
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"
+            import "github.com/imoore76/ldlm/client"
 
             const ES_SLOTS = 10
 
@@ -123,7 +123,7 @@ thread / task / coroutine (language specific) when a lock timeout is specified.
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"
+            import "github.com/imoore76/ldlm/client"
 
             c, err := client.New(context.Background(), client.Config{
                 Address: "localhost:3144",
@@ -171,7 +171,7 @@ Simple lock
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"            
+            import "github.com/imoore76/ldlm/client"            
 
             c, err := client.New(context.Background(), client.Config{
                 Address: "localhost:3144",
@@ -212,7 +212,7 @@ Wait timeout
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"            
+            import "github.com/imoore76/ldlm/client"            
 
             c, err := client.New(context.Background(), client.Config{
                 Address: "localhost:3144",
@@ -262,7 +262,7 @@ TryLock
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"            
+            import "github.com/imoore76/ldlm/client"            
 
             c, err := client.New(context.Background(), client.Config{
                 Address: "localhost:3144",
@@ -313,7 +313,7 @@ The ``Unlock()`` method is used to release a held lock.
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"            
+            import "github.com/imoore76/ldlm/client"            
 
             c, err := client.New(context.Background(), client.Config{
                 Address: "localhost:3144",
@@ -373,7 +373,7 @@ the ``Lock`` object returned by any locking function.
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"            
+            import "github.com/imoore76/ldlm/client"            
 
             c, err := client.New(context.Background(), client.Config{
                 Address: "localhost:3144",

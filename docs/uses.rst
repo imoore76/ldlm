@@ -32,7 +32,7 @@ failover by running something similar to the following in each server applicatio
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"
+            import "github.com/imoore76/ldlm/client"
 
             c, _ := client.New(context.Background(), client.Config{
                 Address: "localhost:3144",
@@ -79,7 +79,7 @@ by running something similar to the following in each server application:
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"
+            import "github.com/imoore76/ldlm/client"
 
             // Allow 10 servers active at a time
             const allowActive = 10
@@ -135,7 +135,7 @@ being performed to avoid duplicate work. This can be done using try lock:
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"
+            import "github.com/imoore76/ldlm/client"
 
             c, _ := client.New(context.Background(), client.Config{
                 Address: "localhost:3144",
@@ -191,7 +191,7 @@ this can be implemented using lock size.
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"
+            import "github.com/imoore76/ldlm/client"
 
             const elasticSearchSlots = 10
 
@@ -256,7 +256,7 @@ distributed clients sharing the same codebase, (e.g. deployed kubernetes pods).
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"
+            import "github.com/imoore76/ldlm/client"
 
             const (
                 rateLimitSize    = 30
@@ -330,7 +330,7 @@ Limit request rate to a service using locks:
 
         .. code-block:: go
 
-            import "github.com/imoore76/go-ldlm/client"
+            import "github.com/imoore76/ldlm/client"
 
             const (
                 rateLimitSize    = 30

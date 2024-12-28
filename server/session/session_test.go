@@ -17,8 +17,8 @@ package session_test
 import (
 	"testing"
 
-	cl "github.com/imoore76/go-ldlm/server/clientlock"
-	"github.com/imoore76/go-ldlm/server/session"
+	cl "github.com/imoore76/ldlm/server/clientlock"
+	"github.com/imoore76/ldlm/server/session"
 	"github.com/stretchr/testify/assert"
 )
 

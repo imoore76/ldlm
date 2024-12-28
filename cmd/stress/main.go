@@ -21,10 +21,10 @@ import (
 	"os"
 
 	cnf "github.com/imoore76/configurature"
-	"github.com/imoore76/go-ldlm/constants"
-	"github.com/imoore76/go-ldlm/stresstest"
+	"github.com/imoore76/ldlm/constants"
+	"github.com/imoore76/ldlm/stresstest"
 
-	"github.com/imoore76/go-ldlm/log"
+	"github.com/imoore76/ldlm/log"
 )
 
 // Config for the stress test

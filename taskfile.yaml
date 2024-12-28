@@ -98,7 +98,7 @@ tasks:
       # Build artifacts
       - rm -rf ./dist
       # Nonsense added by vscode c# extension
-      - rm -rf go-ldlm.sln examples/c#/bin examples/c#/obj
+      - rm -rf ldlm.sln examples/c#/bin examples/c#/obj
 
 # Common tasks
   check:

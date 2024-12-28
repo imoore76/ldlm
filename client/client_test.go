@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	pb "github.com/imoore76/go-ldlm/protos"
+	pb "github.com/imoore76/ldlm/protos"
 	"github.com/stretchr/testify/assert"
 
 	"google.golang.org/grpc"

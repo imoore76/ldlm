@@ -19,7 +19,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	cl "github.com/imoore76/go-ldlm/server/clientlock"
+	cl "github.com/imoore76/ldlm/server/clientlock"
 )
 
 func TestClientLock(t *testing.T) {

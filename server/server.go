@@ -27,12 +27,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/imoore76/go-ldlm/lock"
-	"github.com/imoore76/go-ldlm/log"
-	cl "github.com/imoore76/go-ldlm/server/clientlock"
-	"github.com/imoore76/go-ldlm/server/ipc"
-	"github.com/imoore76/go-ldlm/server/session"
-	"github.com/imoore76/go-ldlm/timer"
+	"github.com/imoore76/ldlm/lock"
+	"github.com/imoore76/ldlm/log"
+	cl "github.com/imoore76/ldlm/server/clientlock"
+	"github.com/imoore76/ldlm/server/ipc"
+	"github.com/imoore76/ldlm/server/session"
+	"github.com/imoore76/ldlm/timer"
 )
 
 var (

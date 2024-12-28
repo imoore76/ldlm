@@ -39,7 +39,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
-	pb "github.com/imoore76/go-ldlm/protos"
+	pb "github.com/imoore76/ldlm/protos"
 )
 
 var (

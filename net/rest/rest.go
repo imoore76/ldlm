@@ -32,10 +32,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/imoore76/go-ldlm/log"
-	sec "github.com/imoore76/go-ldlm/net/security"
-	pb "github.com/imoore76/go-ldlm/protos"
-	"github.com/imoore76/go-ldlm/timer"
+	"github.com/imoore76/ldlm/log"
+	sec "github.com/imoore76/ldlm/net/security"
+	pb "github.com/imoore76/ldlm/protos"
+	"github.com/imoore76/ldlm/timer"
 	"google.golang.org/grpc/stats"
 )
 
