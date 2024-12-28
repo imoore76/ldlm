@@ -2,7 +2,7 @@
 Overview
 =============
 
-LDLM is a light-weight distributed lock manager with many use cases.
+LDLM is a lightweight distributed lock manager with many use cases.
 
 Installation
 =============

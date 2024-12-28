@@ -378,7 +378,7 @@ func TestUnlock_StopRenew(t *testing.T) {
 	defer patchMinRenewSeconds(1)()
 	gClient := newTestGrpcClient(nil, nil, nil, nil)
 	c := newTestClient(&Config{}, gClient)
-	r := NewRenewer(c, "test", "foo", 30)
+	r := newRenewer(c, "test", "foo", 30)
 	c.renewMap.Store("test", r)
 	time.Sleep(time.Duration(1500) * time.Millisecond)
 	c.Unlock("test", "foo")
@@ -395,15 +395,15 @@ func TestClose(t *testing.T) {
 	gClient := newTestGrpcClient(nil, nil, nil, nil)
 	c := newTestClient(&Config{}, gClient)
 
-	r := NewRenewer(c, "test", "foo", 30)
+	r := newRenewer(c, "test", "foo", 30)
 	c.renewMap.Store("test", r)
 	time.Sleep(time.Duration(1500) * time.Millisecond)
 	c.Close()
 	time.Sleep(time.Duration(2000) * time.Millisecond)
 
 	assert := assert.New(t)
-	closer, _ := c.conn.(*closer)
-	assert.True(closer.called)
+	ccloser, _ := c.conn.(*testCloser)
+	assert.True(ccloser.called)
 	assert.Len(gClient.renewRequests, 1)
 
 }
@@ -510,32 +510,32 @@ func TestRpcErrorToError(t *testing.T) {
 }
 
 func patchRetryDelaySeconds(new int) func() {
-	old := retryDelaySeconds
-	retryDelaySeconds = new
+	old := RetryDelaySeconds
+	RetryDelaySeconds = new
 	return func() {
-		retryDelaySeconds = old
+		RetryDelaySeconds = old
 	}
 }
 
 func patchMinRenewSeconds(new int32) func() {
-	old := minRenewSeconds
-	minRenewSeconds = new
+	old := MinRenewSeconds
+	MinRenewSeconds = new
 	return func() {
-		minRenewSeconds = old
+		MinRenewSeconds = old
 	}
 }
 
 // implement Closer interface
-type closer struct {
+type testCloser struct {
 	called bool
 }
 
-func (c *closer) Close() error { c.called = true; return nil }
+func (c *testCloser) Close() error { c.called = true; return nil }
 
-func newTestClient(conf *Config, gClient *testGrpcClient) *client {
+func newTestClient(conf *Config, gClient *testGrpcClient) *Client {
 
-	return &client{
-		conn:        &closer{},
+	return &Client{
+		conn:        &testCloser{},
 		pbc:         gClient,
 		ctx:         context.Background(),
 		renewMap:    sync.Map{},

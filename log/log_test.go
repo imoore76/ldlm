@@ -25,8 +25,8 @@ import (
 
 func Test_Context(t *testing.T) {
 
-	nilLog := log.FromContext(context.Background())
-	assert.Nil(t, nilLog)
+	nilog := log.FromContext(context.Background())
+	assert.Nil(t, nilog)
 
 	logA := log.FromContextOrDefault(context.Background())
 

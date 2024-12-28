@@ -24,8 +24,8 @@ Contents
     usage
     uses
     api
-    CONTRIBUTING
-    LICENSE
+    contributing
+    license
 
 Disclaimer
 --------------------

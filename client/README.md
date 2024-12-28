@@ -1,23 +1,70 @@
-# ldlm Client
+# Go LDLM Client
 
-`ldlm/client` is a go library for communicating with an LDLM server (http://github.com/imoore76/ldlm).
+<p align="center">
+<img src="../images/LDLM%20Logo%20Symbol.png" alt="ldlm logo" />
+</p>
 
-## Installation
+
+A Go <a href="http://github.com/imoore76/ldlm" target="_blank">LDLM</a> client library.
+For LDLM concepts, use cases, and general information, see the
+<a href="https://ldlm.readthedocs.io/" target="_blank">LDLM documentation</a>.
+
+Installation
+===============
 
 ```go
 // your go application
 include "github.com/imoore76/ldlm/client"
 ```
 
-The just run `go mod tidy`
+then
+
+```bash
+$ go mod tidy
+```
+
+## Basic Example
+
+```go
+import (
+    "context"
+
+    "github.com/imoore76/ldlm/client"
+)
+
+c, _ := client.New(context.Background(), client.Config{
+    Address: "ldlm-server:3144",
+})
+
+lock, err := c.Lock("my-task", nil)
+
+if err != nil {
+    panic(err)
+}
+
+doMyTask()
+
+if err = lock.Unlock(); err != nil {
+    panic(err)
+}
+```
+
 
 ## Usage
+
+Comprehensive API documentation is available at
+<a href="https://pkg.go.dev/github.com/imoore76/ldlm/client" target="_blank">pkg.go.dev</a>.
+
+### Basic Concepts
+
+Be sure to read about LDLM lock concepts in the 
+<a href="https://ldlm.readthedocs.io/en/stable/concepts.html" target="_blank">`LDLM documentation</a>.
 
 ### Create a Client
 A client takes a context and a client.Config object. You can Cancel the context to abort a client's operations.
 
 ```go
-c := client.New(context.Background(), client.Config{
+c, _ := client.New(context.Background(), client.Config{
     Address: "localhost:3144",
 })
 ```
@@ -40,14 +87,6 @@ The client also takes an arbitrary number of gRPC [dial options](https://pkg.go.
 | `MaxRetries`  | int  |  Number of times to retry requests that have failed due to network errors |
 
 
-### Basic Concepts
-
-Locks in an LDLM server generally live until the client unlocks the lock or disconnects. If a client dies while holding a lock, the disconnection is detected and handled in LDLM by releasing the lock.
-
-Depending on your LDLM server configuration, this feature may be disabled and `LockTimeoutSeconds` would be used to specify the maximum amount of time a lock can remain locked without being renewed. The client will take care of renewing locks in the background for you unless you've specified `NoAutoRenew` in the client's options. Otherwise, you must periodically call `Renew(...)` yourself &lt; the lock timeout interval.
-
-To `Unlock()` or renew a lock, you must use the lock key that was issued from the lock request's response. Using a Lock object's `Unlock()` method takes care of this for you. This is exemplified further in the following sections.
-
 ### Lock Object
 
 `client.Lock` objects are returned from successful `Lock()` and `TryLock()` client methods. They have the following members:
@@ -57,7 +96,7 @@ To `Unlock()` or renew a lock, you must use the lock key that was issued from th
 | `Name` | `string` | The name of the lock |
 | `Key` | `string` | the key for the lock |
 | `Locked` | `bool` | whether the was acquired or not |
-| `Unlock()` | `func() (bool, error)` | method to unlock the lock |
+| `Unlock()` | `func() (error)` | method to unlock the lock |
 
 ### Lock Options
 
@@ -72,7 +111,7 @@ Lock operations take a `*LockOptions` object that has the following properties:
 
 ### Lock
 
-`Lock()` attempts to acquire a lock in LDLM. It will block until the lock is acquired or until `WaitTimeoutSeconds` has elapsed (if specified).  If you have set `WaitTimeoutSeconds` and the lock could not be acquired in that time, the returned error will be `ErrLockWaitTimeout`.
+`Lock()` attempts to acquire a lock in LDLM. It will block until the lock is acquired or until `WaitTimeoutSeconds` has elapsed (if specified).
 
 `Lock()` accepts the following arguments.
 
@@ -88,25 +127,31 @@ It returns a `*Lock` and an `error`.
 Simple lock
 ```go
 lock, err = c.Lock("my-task", nil)
-if err != nill {
+if err != nil {
     // handle err
 }
-defer lock.Unlock()
 
-// Perform task...
+doWork("my-task")
 
+lock.Unlock()
 ```
 
 Wait timeout
 ```go
 lock, err = c.Lock("my-task", &client.LockOptions{WaitTimeoutSeconds: 5})
-if err != nill {
-    // handle err
-    if !errors.Is(err, client.ErrLockWaitTimeout) {
-        // The error is not because the wait timeout was exceeded
-    }
+if err != nil {
+    panic(err)
 }
-defer lock.Unlock()
+
+if !lock.Locked {
+    fmt.Println("Couldn't obtain lock within 5 seconds")
+    return
+}
+
+doWork("my-task")
+
+lock.Unlock()
+
 ```
 
 ### Try Lock
@@ -126,7 +171,7 @@ It returns a `*Lock` and an `error`.
 Simple try lock
 ```go
 lock, err = c.TryLock("my-task", nil)
-if err != nill {
+if err != nil {
     // handle err
 }
 if !lock.Locked {
@@ -134,9 +179,9 @@ if !lock.Locked {
     return
 }
 
-defer lock.Unlock()
-// Do work...
+doWork("my-task")
 
+lock.Unlock()
 ```
 
 
@@ -158,108 +203,6 @@ Simple unlock
 unlocked, err := c.Unlock("my_task", lock.key)
 ```
 
-### Renew Lock
-As explained in [Basic Concepts](#basic-concepts), you may specify a lock timeout using a `LockTimeoutSeconds` argument to any of the `*Lock*()` methods. When you do this, the client will renew the lock in the background without you having to do anything. If, for some reason, you want to disable auto renew (`NoAutoRenew=true` in client Config), you will have to renew the lock before it times out using the `Renew()` method.
-
-It takes the following arguments
-
-| Type | Description |
-| :--- | :--- |
-| `string` | Name of the lock to acquire |
-| `string` | The key for the lock |
-| `int32` | The new lock expiration timeout (or the same timeout if you'd like) |
-
-It returns a `*Lock` and an `error`.
-
-#### Examples
-```go
-lock, err = c.Lock("task1-lock", &client.LockOptions{
-    LockTimeoutSeconds: 300,
-})
-
-
-if err != nil {
-    // handle err
-}
-
-// There was no wait timeout set, so if there was no error, the lock was acquired
-defer lock.Unlock()
-
-// do some work, then
-
-if _, err := c.Renew("task1-lock", lock.Key, 300); err != nil {
-    panic(err)
-}
-
-// do some more work, then
-
-if _, err := c.Renew("task1-lock", lock.Key, 300); err != nil {
-    panic(err)
-}
-
-// do some more work
-
-```
-## Common Patterns
-
-### Primary / Secondary Failover
-
-Using a lock, it is relatively simple to implement primary / secondary (or secondaries) failover by running something similar to the following in each server application: 
-```go
-lock, err := client.Lock("application-primary")
-
-if err != nil {
-    return err
-}
- 
-if !lock.Locked {
-    // This should not happen 
-    return errors.New("error: lock returned but not locked")
-}
-
-log.Info("Became primary. Performing work...")
-
-// Do work. Lock will be unlocked if this process dies.
-
-```
-
-### Task Locking
-
-In some queue / worker patterns it may be necessary to lock tasks while they are being performed to avoid duplicate work. This can be done using try lock:
-
-```go
-for {
-    workItem := queue.Get()
-
-    lock := client.TryLock(workItem.Name)
-    if !lock.Locked {
-        log.Infof("Work %s already in progress", workItem.Name)
-        continue
-    }
-    defer lock.Unlock()
-
-    // do work ...
-}
-```
-
-### Resource Utilization Limiting
-
-In some applications it may be necessary to limit the number of concurrent operations on a resource. This can be implemented using lock size:
-
-```go
-// Code in each client to restrict the number of concurrent ElasticSearch operations to 10
-lock := client1.Lock("ElasticSearchSlot", &client.LockOptions{Size: 10})
-
-if !lock.Locked {
-    return errors.New("error: lock returned but not locked")
-}
-
-// Perform ES operation
-
-lock.Unlock()
-```
-
-Remember, the size of a lock is set by the first client that obtains the lock. If subsequent calls to a acquire this lock (from this or other clients) use a different size, a `LockSizeMismatch` error will be thrown.
 
 ## License
 
