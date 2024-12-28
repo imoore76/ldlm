@@ -183,7 +183,7 @@ tasks:
   license_headers:
     desc: "Make sure source files have headers"
     cmds:
-      - addlicense -check -ignore '**/.*' -ignore '.*/**' -ignore '**/.venv/**' ./
+      - addlicense -check -ignore '**/.*' -ignore '.*/**' -ignore '**/.venv/**' -ignore 'docs/**' ./
 
   add_license_headers:
     desc: "Make sure source files have headers"

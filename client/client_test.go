@@ -491,6 +491,8 @@ func TestRpcErrorToError(t *testing.T) {
 		3: ErrLockWaitTimeout,
 		4: ErrLockNotLocked,
 		5: ErrLockDoesNotExistOrInvalidKey,
+		6: ErrLockSizeMismatch,
+		7: ErrInvalidLockSize,
 	}
 	assert := assert.New(t)
 	for k, v := range codeMap {

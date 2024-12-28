@@ -20,7 +20,7 @@ user@host ~$ docker run -p 3144:3144 ian76/ldlm:latest
 
 ## Server Usage
 
-    ldlm-server -help
+    ldlm-server --help
 
 -------------------
 
@@ -210,7 +210,7 @@ Lock keys are meant to detect when LDLM and a client are out of sync. They are n
 
 ## ldlm-lock commands
 
-The ldlm-lock command is used to manipulate locks in a running LDLM server on the CLI. See also `ldlm-lock -help`.
+The ldlm-lock command is used to manipulate locks in a running LDLM server on the CLI. See also `ldlm-lock --help`.
 
 ### List Locks
 

@@ -4,7 +4,9 @@
 !/.goreleaser.yaml
 !/.dockerfile
 !/.api_config.yaml
+!/.readthedocs.yaml
 /dist
+/docs/build
 
 # Added by vscode's C# extension
 /go-ldlm.sln

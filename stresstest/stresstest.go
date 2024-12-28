@@ -15,9 +15,9 @@
 /*
 stresstest exposes a StressTest() function which can be used to stress test
 ldlm. It's particularly useful when checking for race conditions. It's meant
-to be used by ldlm developers and is not exposed via -help. To run:
+to be used by ldlm developers and is not exposed via --help. To run:
 
-	ldlm-stress -help
+	ldlm-stress --help
 */
 package stresstest
 

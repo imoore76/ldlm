@@ -88,17 +88,30 @@ type LockOptions struct {
 // Unlock attempts to release the lock.
 //
 // Returns:
-// - bool: True if the lock was successfully released, false otherwise.
 // - error: An error if the lock release fails.
-func (l *Lock) Unlock() (bool, error) {
+func (l *Lock) Unlock() error {
 	if !l.Locked {
-		return false, ErrLockNotLocked
+		return ErrLockNotLocked
 	} else {
 		unlocked, err := l.client.Unlock(l.Name, l.Key)
-		if err == nil && unlocked {
-			l.Locked = false
-		}
-		return unlocked, err
+		l.Locked = !(err == nil && unlocked)
+		return err
+	}
+}
+
+// Renew attempts to renew the lock.
+//
+// Parameters:
+// - lockTimeoutSeconds: The lock timeout in seconds.
+//
+// Returns:
+// - error: An error if the lock renew fails.
+func (l *Lock) Renew(lockTimeoutSeconds int32) error {
+	if !l.Locked {
+		return ErrLockNotLocked
+	} else {
+		_, err := l.client.Renew(l.Name, l.Key, lockTimeoutSeconds)
+		return err
 	}
 }
 
