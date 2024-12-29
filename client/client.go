@@ -53,9 +53,9 @@ var (
 
 var (
 	// Minimum amount of time to wait before renewing a lock
-	minRenewSeconds = int32(10)
+	MinRenewSeconds = int32(10)
 	// The delay between failed retries
-	retryDelaySeconds = 3
+	RetryDelaySeconds = 3
 )
 
 type Config struct {
@@ -72,17 +72,17 @@ type Config struct {
 
 // Simple lock struct returned to clients.
 type Lock struct {
-	client *client
+	client *Client
 	Name   string
 	Key    string
 	Locked bool
 }
 
-// Lock options struct.
+// Lock options passed to Lock and TryLock.
 type LockOptions struct {
-	WaitTimeoutSeconds int32
-	LockTimeoutSeconds int32
-	Size               int32
+	WaitTimeoutSeconds int32 // How long to wait for the lock to become available
+	LockTimeoutSeconds int32 // How long to hold the lock before needing to renew
+	Size               int32 // Size of the lock
 }
 
 // Unlock attempts to release the lock.
@@ -93,8 +93,7 @@ func (l *Lock) Unlock() error {
 	if !l.Locked {
 		return ErrLockNotLocked
 	} else {
-		unlocked, err := l.client.Unlock(l.Name, l.Key)
-		l.Locked = !(err == nil && unlocked)
+		_, err := l.client.Unlock(l.Name, l.Key)
 		return err
 	}
 }
@@ -115,13 +114,13 @@ func (l *Lock) Renew(lockTimeoutSeconds int32) error {
 	}
 }
 
-// Interface for connection Closer
-type Closer interface {
+// Interface for connection closer
+type closer interface {
 	Close() error
 }
 
-type client struct {
-	conn        Closer
+type Client struct {
+	conn        closer
 	pbc         pb.LDLMClient
 	ctx         context.Context
 	renewMap    sync.Map
@@ -137,9 +136,9 @@ type client struct {
 // - opts: Optional grpc.DialOptions for the client.
 //
 // Returns:
-// - *client: The newly created client instance.
+// - *Client: The newly created client instance.
 // - error: An error if the client creation fails.
-func New(ctx context.Context, conf Config, opts ...grpc.DialOption) (*client, error) {
+func New(ctx context.Context, conf Config, opts ...grpc.DialOption) (*Client, error) {
 	creds := insecure.NewCredentials()
 	if conf.UseTls || conf.TlsCert != "" {
 		tlsC := &tls.Config{
@@ -180,7 +179,7 @@ func New(ctx context.Context, conf Config, opts ...grpc.DialOption) (*client, er
 		ctx = metadata.AppendToOutgoingContext(ctx, "authorization", conf.Password)
 	}
 
-	return &client{
+	return &Client{
 		conn:        conn,
 		pbc:         pb.NewLDLMClient(conn),
 		ctx:         ctx,
@@ -199,7 +198,7 @@ func New(ctx context.Context, conf Config, opts ...grpc.DialOption) (*client, er
 // Returns:
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock acquisition fails.
-func (c *client) Lock(name string, o *LockOptions) (*Lock, error) {
+func (c *Client) Lock(name string, o *LockOptions) (*Lock, error) {
 	if o == nil {
 		o = &LockOptions{}
 	}
@@ -222,6 +221,7 @@ func (c *client) Lock(name string, o *LockOptions) (*Lock, error) {
 			return c.pbc.Lock(c.ctx, req)
 		},
 	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -229,6 +229,7 @@ func (c *client) Lock(name string, o *LockOptions) (*Lock, error) {
 	if resp.Locked {
 		c.maybeCreateRenewer(resp, o.LockTimeoutSeconds)
 	}
+
 	return &Lock{
 		Name:   resp.Name,
 		Key:    resp.Key,
@@ -247,7 +248,7 @@ func (c *client) Lock(name string, o *LockOptions) (*Lock, error) {
 // Returns:
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock acquisition fails.
-func (c *client) TryLock(name string, o *LockOptions) (*Lock, error) {
+func (c *Client) TryLock(name string, o *LockOptions) (*Lock, error) {
 	if o == nil {
 		o = &LockOptions{}
 	}
@@ -290,7 +291,7 @@ func (c *client) TryLock(name string, o *LockOptions) (*Lock, error) {
 // Returns:
 // - bool: True if the lock was successfully released, false otherwise.
 // - error: An error if the lock release fails.
-func (c *client) Unlock(name string, key string) (bool, error) {
+func (c *Client) Unlock(name string, key string) (bool, error) {
 	c.maybeRemoveRenewer(name)
 	r, err := rpcWithRetry(
 		c.maxRetries,
@@ -317,7 +318,7 @@ func (c *client) Unlock(name string, key string) (bool, error) {
 // Returns:
 // - *Lock: A pointer to a Lock struct containing the name, key, and locked status of the lock.
 // - error: An error if the lock renew fails.
-func (c *client) Renew(name string, key string, lockTimeoutSeconds int32) (*Lock, error) {
+func (c *Client) Renew(name string, key string, lockTimeoutSeconds int32) (*Lock, error) {
 	r, err := rpcWithRetry(
 		c.maxRetries,
 		func() (*pb.LockResponse, error) {
@@ -336,7 +337,7 @@ func (c *client) Renew(name string, key string, lockTimeoutSeconds int32) (*Lock
 //
 // No parameters.
 // Returns an error if the connection close fails.
-func (c *client) Close() error {
+func (c *Client) Close() error {
 	c.renewMap.Range(func(k, v interface{}) bool {
 		renewer := v.(*renewer)
 		renewer.Stop()
@@ -352,13 +353,13 @@ func (c *client) Close() error {
 // Parameters:
 // - r: A pointer to a LockResponse struct containing the lock information.
 // - lockTimeoutSeconds: A int32 representing the lock timeout in seconds.
-func (c *client) maybeCreateRenewer(r *pb.LockResponse, lockTimeoutSeconds int32) {
+func (c *Client) maybeCreateRenewer(r *pb.LockResponse, lockTimeoutSeconds int32) {
 	if !r.Locked || c.noAutoRenew || lockTimeoutSeconds == 0 {
 		return
 	}
 
 	// Create and add lock to renew map
-	rFresher := NewRenewer(c, r.Name, r.Key, lockTimeoutSeconds)
+	rFresher := newRenewer(c, r.Name, r.Key, lockTimeoutSeconds)
 	if _, loaded := c.renewMap.LoadOrStore(r.Name, rFresher); loaded {
 		panic("client out of sync - lock already exists in renew map")
 	}
@@ -372,7 +373,7 @@ func (c *client) maybeCreateRenewer(r *pb.LockResponse, lockTimeoutSeconds int32
 //
 // Return:
 // - None.
-func (c *client) maybeRemoveRenewer(name string) {
+func (c *Client) maybeRemoveRenewer(name string) {
 	if c.noAutoRenew {
 		return
 	}
@@ -385,14 +386,14 @@ func (c *client) maybeRemoveRenewer(name string) {
 }
 
 type renewer struct {
-	client             *client
+	client             *Client
 	name               string
 	key                string
 	lockTimeoutSeconds int32
 	stop               chan struct{}
 }
 
-// NewRenewer creates a new renewer instance with the given client, name, key, and lock timeout.
+// newRenewer creates a new renewer instance with the given client, name, key, and lock timeout.
 //
 // Parameters:
 // - client: A pointer to a client struct.
@@ -402,7 +403,7 @@ type renewer struct {
 //
 // Return:
 // - A pointer to a renewer struct.
-func NewRenewer(client *client, name string, key string, lockTimeoutSeconds int32) *renewer {
+func newRenewer(client *Client, name string, key string, lockTimeoutSeconds int32) *renewer {
 	r := &renewer{
 		client:             client,
 		name:               name,
@@ -421,10 +422,10 @@ func NewRenewer(client *client, name string, key string, lockTimeoutSeconds int3
 func (r *renewer) Start() {
 	var interval int32
 	if r.lockTimeoutSeconds <= 30 {
-		interval = minRenewSeconds
+		interval = MinRenewSeconds
 	} else {
 		// an unsigned int that is less than 30 would wrap here
-		interval = max(r.lockTimeoutSeconds-30, minRenewSeconds)
+		interval = max(r.lockTimeoutSeconds-30, MinRenewSeconds)
 	}
 	go func() {
 		for {
@@ -515,7 +516,7 @@ func rpcWithRetry[T any](maxRetries int, f func() (T, error)) (T, error) {
 					return r, err
 				}
 				retries++
-				time.Sleep(time.Duration(retryDelaySeconds) * time.Second)
+				time.Sleep(time.Duration(RetryDelaySeconds) * time.Second)
 				continue
 			} else {
 				return r, err

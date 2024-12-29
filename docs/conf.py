@@ -36,3 +36,4 @@ autosectionlabel_prefix_document = True
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = []
+html_favicon = '../images/favicon.ico'

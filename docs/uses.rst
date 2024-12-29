@@ -35,7 +35,7 @@ failover by running something similar to the following in each server applicatio
             import "github.com/imoore76/ldlm/client"
 
             c, _ := client.New(context.Background(), client.Config{
-                Address: "localhost:3144",
+                Address: "ldlm-server:3144",
             })
 
             // This will block until the lock is acquired
@@ -85,7 +85,7 @@ by running something similar to the following in each server application:
             const allowActive = 10
 
             c, _ := client.New(context.Background(), client.Config{
-                Address: "localhost:3144",
+                Address: "ldlm-server:3144",
             })
 
             // This will block until the lock is acquired
@@ -138,7 +138,7 @@ being performed to avoid duplicate work. This can be done using try lock:
             import "github.com/imoore76/ldlm/client"
 
             c, _ := client.New(context.Background(), client.Config{
-                Address: "localhost:3144",
+                Address: "ldlm-server:3144",
             })
 
             for {
@@ -155,9 +155,10 @@ being performed to avoid duplicate work. This can be done using try lock:
                     log.Infof("Work %s already in progress", workItem.Name)
                     continue
                 }
-                defer lock.Unlock()
 
                 RunJob(workItem)
+
+                lock.Unlock()
             }
 
 Resource Utilization Limiting
@@ -196,7 +197,7 @@ this can be implemented using lock size.
             const elasticSearchSlots = 10
 
             c, _ := client.New(context.Background(), client.Config{
-                Address: "localhost:3144",
+                Address: "ldlm-server:3144",
             })
 
             // This will block until the lock is acquired
@@ -264,7 +265,7 @@ distributed clients sharing the same codebase, (e.g. deployed kubernetes pods).
             )
 
             c, _ := client.New(context.Background(), client.Config{
-                Address: "localhost:3144",
+                Address: "ldlm-server:3144",
                 NoAutoRenew: true,
             })
 
@@ -338,7 +339,7 @@ Limit request rate to a service using locks:
             )
 
             c, _ := client.New(context.Background(), client.Config{
-                Address: "localhost:3144",
+                Address: "ldlm-server:3144",
                 NoAutoRenew: true,
             })
 
