@@ -40,3 +40,6 @@ For containerized environments, the docker image ``ian76/ldlm:latest`` is availa
     {"time":"2024-04-27T03:33:03.434286717Z","level":"INFO","msg":"IPC server started","socket":"/tmp/ldlm-ipc.sock"}
     {"time":"2024-04-27T03:33:03.434402133Z","level":"WARN","msg":"gRPC server started. Listening on 0.0.0.0:3144"}
 
+.. seealso::
+
+    Clients for LDLM can be find in :doc:`API Usage > Native Clients </api>`

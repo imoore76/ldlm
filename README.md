@@ -22,6 +22,19 @@ user@host ~$ docker run -p 3144:3144 ian76/ldlm:latest
 
 Full documentation is available at http://ldlm.readthedocs.io/
 
+## Clients
+
+Native LDLM clients which have their own usage documented
+in their respective repos are available for
+
+* <a href="https://github.com/imoore76/ldlm/tree/main/client" target="_blank">Go</a>
+* <a href="https://github.com/imoore76/py-ldlm" target="_blank">Python</a>
+
+API clients can be created using any language supported by gRPC.
+If a native client is not available for your language,
+<a href="https://github.com/imoore76/ldlm/tree/main/examples" target="_blank">examples</a>
+for other languages are available.
+
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for details.
