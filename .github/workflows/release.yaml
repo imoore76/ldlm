@@ -9,17 +9,19 @@ env:
   REGISTRY_IMAGE: ian76/ldlm
 
 jobs:
-  goreleaser:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.23.x
-
+      - shell: bash
+        run: go list -m github.com/imoore76/ldlm
+        env:
+          GOPROXY: proxy.golang.org
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
