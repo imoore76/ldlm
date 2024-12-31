@@ -1,4 +1,0 @@
-{
-   "listen_address": "0.0.0.0:6000",
-   "lock_gc_interval":"20m"
-}
