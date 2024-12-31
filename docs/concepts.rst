@@ -15,9 +15,12 @@ If an LDLM client dies while holding a lock, the disconnection is detected and h
 in LDLM by
 releasing any locks held by the client. This effectively eliminates deadlocks.
 
-Name
+Lock Name
 ----------
-A lock is uniquely identified by its name. This is specified when the lock is requested.
+A lock is uniquely identified by the name specified when the lock is requested.
+There are no character restrictions on lock names, but it is recommended to use
+a name that is unique to the task or resource being locked otherwise locking would
+be quite useless.
 
 ..  tabs::
 
@@ -48,9 +51,9 @@ A lock is uniquely identified by its name. This is specified when the lock is re
             lock, err = c.Lock("my-task", nil)
 
 
-Size
+Lock Size
 ----------
-Locks can have a size (defaults to: 1). This allows for a finite (but greater than 1)
+Locks can have a size (defaults to: 1). This allows for a finite, but greater than 1
 number of lock acquisitions to be held on the same lock.
 
 ..  tabs::
@@ -90,22 +93,27 @@ number of lock acquisitions to be held on the same lock.
                 Size: ES_SLOTS,
             })
 
-Timeout
-----------
+Lock Timeout
+-------------
+When acquiring a lock, a lock timeout specifies the maximum amount of
+time a lock can remain locked without
+being renewed; if the lock is not renewed in time, it is released. Unless specifically disabled,
+LDLM clients will automatically renew the lock in a background 
+thread / task / coroutine (language specific) when a lock timeout is specified.
+
+Using lock timeouts can be useful for implementing a :ref:`client side<uses:Client-side Rate Limiting>`
+or :ref:`server side<uses:Server-side Rate Limiting>` rate limiter.
+
 .. note::
     
-    Most users will **not** need to set a timeout for the purpose of mitigating
-    deadlocks because client disconnects trigger a release of all locks held by
-    the client.
-
-In rare cases where client connections are unreliable, one
-could use a lock timeout on all locks
-and disable the :ref:`Unlock on Client Disconnect <configuration:No Unlock on Client Disconnect>`
-option in the LDLM server. ``LockTimeoutSeconds`` specifies the maximum amount of
-time a lock can remain locked without being renewed; if the lock is not renewed in time,
-it is released. Unless specifically disabled, LDLM clients will automatically renew
-the lock in a background 
-thread / task / coroutine (language specific) when a lock timeout is specified.
+    In rare cases where client connections are unreliable,
+    a lock timeout could be used on all locks
+    and the :ref:`No Unlock on Client Disconnect <configuration:No Unlock on Client Disconnect>`
+    option set in the LDLM server. This would be tolerant of client disconnects
+    while still ensuring that no deadlocks occur.
+    
+    In most most cases, it is recommended to leave the default behavior which
+    releases locks when a client unexpectedly quits and its connection drops.
 
 ..  tabs::
 
@@ -143,11 +151,16 @@ Acquiring a Lock
 
 Locks are generally acquired using ``Lock()`` or ``TryLock()``. ``Lock()`` will block until
 the lock is acquired or until ``WaitTimeoutSeconds`` have elapsed (if specified). ``TryLock()``
-will return immediately whether the lock was acquired or not; the return value is inspected to
-determine lock acquisition in this case.
+will return immediately whether the lock was acquired or not.
 
-In all cases, a ``Lock`` object is returned. The object is a truthy if locked and falsy if
-unlocked. It can also be used to unlock and renew the held lock as you will read about below.
+In all cases, a ``Lock`` object is returned. This object can be inspected (``.Locked`` property)
+to determine if the lock was acquired and can be released using the ``Unlock()`` method.
+
+.. note::
+
+    When using ``Lock()`` without a wait timeout set, the client will block until the lock is acquired.
+    There is no need to check the ``Locked`` property of the returned ``Lock`` object.
+
 
 Examples
 ----------
@@ -180,6 +193,7 @@ Simple lock
                 panic(err)
             }
 
+            // Block until a lock is obtained
             lock, err := c.Lock("my-lock", nil)
 
             if err != nil {
@@ -429,8 +443,8 @@ Lock Garbage Collection
 Each lock requires a small, but non-zero amount of memory.
 For performance reasons, "idle" (unlocked) locks in LDLM live until an internal lock
 garbage collection task runs.
-In cases where a large number of locks are continually created, lock garbage
-collection related settings may need to be tweaked.
+In cases where a large number of locks are continually created
+at a high rate, lock garbage collection related settings may need to be adjusted.
 
 :ref:`configuration:Lock Garbage Collection Interval (advanced)` determines how often lock
 garbage collection will run. :ref:`configuration:Lock Garbage Collection Idle Duration (advanced)`

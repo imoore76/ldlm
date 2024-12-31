@@ -12,7 +12,7 @@ the same option set in a config file.
 Options
 ----------------------------------------------
 
-Also available by running
+See available by running
 
 .. code-block:: bash
 
@@ -132,7 +132,8 @@ IPC Socket File
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Path to a file to use for IPC (inter process communication) 
-with the ``ldlm-lock`` command. This file should not exist; it will be created by the
+with the ``ldlm-lock`` :ref:`command<usage:Lock Tool>`.
+This file should not exist; it will be created by the
 server. Set to an empty string to disable IPC. 
 
 .. option:: --ipc_socket_file <file path>
@@ -238,7 +239,7 @@ The duration a REST session can be idle before it is considered invalid.
 Environment Variables
 -------------------------
 
-Configuration from environment variables consists of setting LDLM_<upper case cli flag>. For example
+Configuration from environment variables consists of setting ``LDLM_<upper case cli flag>``. For example
 
 .. code-block:: bash
 
@@ -246,19 +247,18 @@ Configuration from environment variables consists of setting LDLM_<upper case cl
     LDLM_PASSWORD=mysecret
     LDLM_LOG_LEVEL=info
 
-You can generate an environment variable template file
-with all of LDLM's supported
+You can see the environment variables for all
 configuration options by running
 
 .. code-block:: bash
 
     $ ldlm-server --print_env_template
 
+.. hint::
 
-.. note::
+    The output of the above command can be used to generate a ``.env`` file.
 
-    Environment variable names are also documented in each configuration option.
-
+Environment variable names are also documented in each configuration option.
 
 Config File Syntax
 ---------------------
@@ -290,7 +290,7 @@ configuration options by running
 
 .. code-block:: bash
 
-    $ ldlm-server --print_yaml_template
+    $ ldlm-server --print_yaml_template >ldlm-config.yaml
 
 .. seealso::
 

@@ -131,9 +131,10 @@ being performed to avoid duplicate work. This can be done using try lock:
                     log.debug(f"Work {work_item.name} already in progress")
                     continue
 
-                run_job(work_item)
-
-                lock.unlock()
+                try:
+                    run_job(work_item)
+                finally:
+                    lock.unlock()
 
     .. group-tab:: Go
 
@@ -160,9 +161,10 @@ being performed to avoid duplicate work. This can be done using try lock:
                     continue
                 }
 
-                RunJob(workItem)
-
-                lock.Unlock()
+                func() {
+                    defer lock.Unlock()
+                    RunJob(workItem)
+                }()
             }
 
 Resource Utilization Limiting
@@ -188,9 +190,10 @@ this can be implemented using lock size.
             # Block until a slot becomes available.
             lock = client.lock("ElasticSearchSlot", size=ES_SLOTS):
 
-            elastic_search.do_something()
-            
-            lock.unlock()
+            try:
+                elastic_search.do_something()
+            finally:
+                lock.unlock()
 
     ..  group-tab:: Go
 
@@ -213,9 +216,10 @@ this can be implemented using lock size.
                 panic(err)
             }
 
-            ElasticSearch.DoSomething()
-
-            lock.Unlock()
+            func() {
+                defer lock.Unlock()
+                ElasticSearch.DoSomething()
+            }()
 
 
 Client-side Rate Limiting
