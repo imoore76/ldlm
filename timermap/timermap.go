@@ -17,7 +17,7 @@ This file contains the timer manager struct and methods. A timer manager is used
 map of timers which perform a callback when they expire. They can be removed or renewed before
 they expire.
 */
-package timer
+package timermap
 
 import (
 	"errors"
@@ -28,17 +28,17 @@ import (
 var ErrTimerDoesNotExist = errors.New("timer does not exist")
 
 // manager for a map of timers
-type manager struct {
+type TimerMap struct {
 	timers    map[string]*time.Timer
 	timersMtx sync.RWMutex
 }
 
-// NewManager initializes a new timer manager with the provided onTimeoutFunc.
+// New initializes a new timer manager with the provided onTimeoutFunc.
 //
-// Returns a pointer to Manager and a shutdown function.
-func NewManager() (*manager, func()) {
+// Returns a pointer to TimerMap and a closer function.
+func New() (*TimerMap, func()) {
 
-	m := &manager{
+	m := &TimerMap{
 		timers:    make(map[string]*time.Timer),
 		timersMtx: sync.RWMutex{},
 	}
@@ -46,7 +46,7 @@ func NewManager() (*manager, func()) {
 }
 
 // Add creates and adds a timer to the map
-func (m *manager) Add(key string, onTimeout func(), timeout time.Duration) {
+func (m *TimerMap) Add(key string, onTimeout func(), timeout time.Duration) {
 	m.timersMtx.Lock()
 	defer m.timersMtx.Unlock()
 
@@ -60,7 +60,7 @@ func (m *manager) Add(key string, onTimeout func(), timeout time.Duration) {
 }
 
 // Remove removes a timer from the map
-func (m *manager) Remove(key string) {
+func (m *TimerMap) Remove(key string) {
 	m.timersMtx.Lock()
 	defer m.timersMtx.Unlock()
 
@@ -72,7 +72,7 @@ func (m *manager) Remove(key string) {
 }
 
 // Renew renews a timer
-func (m *manager) Renew(key string, timeout time.Duration) (bool, error) {
+func (m *TimerMap) Renew(key string, timeout time.Duration) (bool, error) {
 	m.timersMtx.RLock()
 	t, ok := m.timers[key]
 	m.timersMtx.RUnlock()
@@ -89,12 +89,12 @@ func (m *manager) Renew(key string, timeout time.Duration) (bool, error) {
 }
 
 // shutdown stops the timer manager which stops all timers
-func (m *manager) shutdown() {
+func (m *TimerMap) shutdown() {
 	m.timersMtx.Lock()
 	defer m.timersMtx.Unlock()
 
 	for _, t := range m.timers {
 		t.Stop()
 	}
-	m.timers = map[string]*time.Timer{}
+	m.timers = nil
 }

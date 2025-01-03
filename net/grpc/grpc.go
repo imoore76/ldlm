@@ -35,7 +35,7 @@ import (
 	"github.com/imoore76/ldlm/net/security"
 	pb "github.com/imoore76/ldlm/protos"
 	"github.com/imoore76/ldlm/server"
-	"github.com/imoore76/ldlm/timer"
+	"github.com/imoore76/ldlm/timermap"
 )
 
 type Service struct {
@@ -266,7 +266,7 @@ func lockErrToProtoBuffErr(e error) *pb.Error {
 		errCode = pb.ErrorCode_LockDoesNotExist
 	case lock.ErrLockNotLocked:
 		errCode = pb.ErrorCode_NotLocked
-	case timer.ErrTimerDoesNotExist:
+	case timermap.ErrTimerDoesNotExist:
 		errCode = pb.ErrorCode_LockDoesNotExistOrInvalidKey
 	case lock.ErrInvalidLockSize:
 		errCode = pb.ErrorCode_InvalidLockSize
