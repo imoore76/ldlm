@@ -7,6 +7,11 @@ locks which can be locked and unlocked using an
 LDLM client. Generally speaking, a lock that is held (locked) can not be obtained until
 it is released (unlocked) by the lock holder.
 
+.. note::
+
+    The examples that follow use client libraries available
+    :ref:`here<api:Native Clients>`.
+
 Locks
 =========
 A lock in LDLM remains locked until the lock holding client unlocks it or 

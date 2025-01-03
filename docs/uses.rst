@@ -5,9 +5,10 @@ Use Cases
 
 Below are some common use cases and client code examples.
 
-.. seealso::
+.. note::
 
-    Clients for LDLM can be find in :doc:`API Usage > Native Clients </api>`
+    The examples that follow use client libraries available
+    :ref:`here<api:Native Clients>`.
 
 Failover
 ===============================
