@@ -32,7 +32,7 @@ import (
 	cl "github.com/imoore76/ldlm/server/clientlock"
 	"github.com/imoore76/ldlm/server/ipc"
 	"github.com/imoore76/ldlm/server/session"
-	"github.com/imoore76/ldlm/timer"
+	"github.com/imoore76/ldlm/timermap"
 )
 
 var (
@@ -76,7 +76,7 @@ func New(c *LockServerConfig) (*LockServer, func(), error) {
 	}
 
 	// Set up lock timer manager
-	timeMgr, tmCloser := timer.NewManager()
+	timeMgr, tmCloser := timermap.New()
 	l.lockTimerMgr = timeMgr
 
 	// Load locks from session manager
@@ -347,7 +347,7 @@ func (l *LockServer) Renew(ctx context.Context, name string, key string, lockTim
 
 	locked, err := l.lockTimerMgr.Renew(name+key, time.Duration(lockTimeoutSeconds)*time.Second)
 
-	if err == timer.ErrTimerDoesNotExist {
+	if err == timermap.ErrTimerDoesNotExist {
 		err = ErrLockDoesNotExistOrInvalidKey
 	}
 

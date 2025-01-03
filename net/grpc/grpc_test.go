@@ -34,7 +34,7 @@ import (
 	sec "github.com/imoore76/ldlm/net/security"
 	pb "github.com/imoore76/ldlm/protos"
 	"github.com/imoore76/ldlm/server"
-	"github.com/imoore76/ldlm/timer"
+	"github.com/imoore76/ldlm/timermap"
 )
 
 func getSconf() *sec.SecurityConfig {
@@ -457,7 +457,7 @@ func TestErrorsToProtoErrors(t *testing.T) {
 			code: pb.ErrorCode_NotLocked,
 		},
 		"lock does not exist or invalid key": {
-			err:  timer.ErrTimerDoesNotExist,
+			err:  timermap.ErrTimerDoesNotExist,
 			code: pb.ErrorCode_LockDoesNotExistOrInvalidKey,
 		},
 		"lock size mismatch": {

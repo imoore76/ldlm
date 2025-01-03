@@ -35,7 +35,7 @@ import (
 	"github.com/imoore76/ldlm/log"
 	sec "github.com/imoore76/ldlm/net/security"
 	pb "github.com/imoore76/ldlm/protos"
-	"github.com/imoore76/ldlm/timer"
+	"github.com/imoore76/ldlm/timermap"
 	"google.golang.org/grpc/stats"
 )
 
@@ -343,7 +343,7 @@ func NewRestServer(server grpcLockServer, conf *RestConfig, sConf *sec.SecurityC
 		return nil, nil, err
 	}
 
-	tm, tmCloser := timer.NewManager()
+	tm, tmCloser := timermap.New()
 
 	handler := &restHandler{
 		mux:               gwMux,

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package timer_test
+package timermap_test
 
 import (
 	"sync"
@@ -21,13 +21,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/imoore76/ldlm/timer"
+	"github.com/imoore76/ldlm/timermap"
 )
 
 func TestManager(t *testing.T) {
 	assert := assert.New(t)
 	expired := newSafeStringSlice()
-	m, cl := timer.NewManager()
+	m, cl := timermap.New()
 
 	m.Add("foo", func() {
 		expired.Add("foo")
@@ -47,7 +47,7 @@ func TestManager(t *testing.T) {
 func TestManager_Renew(t *testing.T) {
 	assert := assert.New(t)
 	expired := newSafeStringSlice()
-	m, cl := timer.NewManager()
+	m, cl := timermap.New()
 
 	m.Add("foo", func() {
 		expired.Add("foo")
@@ -73,7 +73,7 @@ func TestManager_Renew(t *testing.T) {
 func TestManager_Remove(t *testing.T) {
 	assert := assert.New(t)
 	expired := newSafeStringSlice()
-	m, cl := timer.NewManager()
+	m, cl := timermap.New()
 
 	m.Add("foo", func() {
 		expired.Add("foo")
@@ -98,7 +98,7 @@ func TestManager_Remove(t *testing.T) {
 func TestManager_Shutdown(t *testing.T) {
 	assert := assert.New(t)
 	expired := newSafeStringSlice()
-	m, cl := timer.NewManager()
+	m, cl := timermap.New()
 	defer cl()
 
 	m.Add("foo", func() {

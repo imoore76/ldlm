@@ -15,7 +15,7 @@ Numerous installation options exist for LDLM.
 
 .. |dockerhub| raw:: html
 
-    <a href="hhttps://hub.docker.com/r/ian76/ldlm" target="_blank">dockerhub</a>
+    <a href="https://hub.docker.com/r/ian76/ldlm" target="_blank">dockerhub</a>
 
 Binary and Package Installation
 ------------------------------------
