@@ -118,9 +118,7 @@ func NewManager(shards uint32, gcInterval time.Duration, gcMinIdle time.Duration
 			select {
 			case <-m.stopCh:
 				slog.Warn("Garbage collection exiting")
-				if !doGc.Stop() {
-					<-doGc.C
-				}
+				doGc.Stop()
 				close(m.stopCh)
 				return
 			case <-doGc.C:
