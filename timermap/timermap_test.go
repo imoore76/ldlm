@@ -44,10 +44,11 @@ func TestManager(t *testing.T) {
 	assert.Equal([]string{"foo", "me"}, expired.Get())
 }
 
-func TestManager_Renew(t *testing.T) {
+func TestManager_Reset(t *testing.T) {
 	assert := assert.New(t)
 	expired := newSafeStringSlice()
 	m, cl := timermap.New()
+	defer cl()
 
 	m.Add("foo", func() {
 		expired.Add("foo")
@@ -55,19 +56,30 @@ func TestManager_Renew(t *testing.T) {
 	m.Add("me", func() {
 		expired.Add("me")
 	}, 1*time.Second)
+	m.Add("me2", func() {
+		expired.Add("me2")
+	}, 500*time.Millisecond)
 	m.Add("baz", func() {
 		expired.Add("baz")
 	}, 1*time.Hour)
 
-	ok, err := m.Renew("me", 1*time.Hour)
+	ok, err := m.Reset("me", 1*time.Hour)
+	assert.Nil(err)
+	assert.True(ok)
+
+	ok, err = m.Reset("me2", 500*time.Millisecond)
 	assert.Nil(err)
 	assert.True(ok)
 
 	time.Sleep(1500 * time.Millisecond)
-	cl()
 
-	// Nothing has expired
-	assert.Equal([]string{}, expired.Get())
+	// me2 can't be reset because it has expired and been removed
+	ok, err = m.Reset("me2", 500*time.Millisecond)
+	assert.ErrorIs(err, timermap.ErrTimerDoesNotExist)
+	assert.False(ok)
+
+	// me2 has expired
+	assert.Equal([]string{"me2"}, expired.Get())
 }
 
 func TestManager_Remove(t *testing.T) {

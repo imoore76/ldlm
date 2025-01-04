@@ -432,15 +432,11 @@ func (r *renewer) Start() {
 			t := time.NewTimer(time.Duration(interval) * time.Second)
 			select {
 			case <-r.client.ctx.Done():
-				if !t.Stop() {
-					<-t.C
-				}
+				t.Stop()
 				close(r.stop)
 				return
 			case <-r.stop:
-				if !t.Stop() {
-					<-t.C
-				}
+				t.Stop()
 				close(r.stop)
 				return
 			case <-t.C:

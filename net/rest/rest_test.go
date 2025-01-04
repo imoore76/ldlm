@@ -388,13 +388,13 @@ func TestGrpcCall_Error(t *testing.T) {
 	assert.Equal("application/json", rec.Header().Get("Content-Type"), "expected content type %s, got %s", "application/json", rec.Header().Get("Content-Type"))
 
 	lock := struct {
-		Name   string `json:"name"`
-		Key    string `json:"key"`
-		Locked bool   `json:"locked"`
+		Name   string
+		Key    string
+		Locked bool
 		Error  *struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		} `json:"error"`
+			Code    string
+			Message string
+		}
 	}{}
 	if err := json.Unmarshal(rec.Body.Bytes(), &lock); err != nil {
 		t.Fatal(err)

@@ -345,7 +345,7 @@ func (l *LockServer) Renew(ctx context.Context, name string, key string, lockTim
 		"timeout", lockTimeoutSeconds,
 	)
 
-	locked, err := l.lockTimerMgr.Renew(name+key, time.Duration(lockTimeoutSeconds)*time.Second)
+	locked, err := l.lockTimerMgr.Reset(name+key, time.Duration(lockTimeoutSeconds)*time.Second)
 
 	if err == timermap.ErrTimerDoesNotExist {
 		err = ErrLockDoesNotExistOrInvalidKey

@@ -71,8 +71,10 @@ func (m *TimerMap) Remove(key string) {
 
 }
 
-// Renew renews a timer
-func (m *TimerMap) Renew(key string, timeout time.Duration) (bool, error) {
+// Reset resets a timer. It returns true if the timer was reset, false if the timer
+// has already fired or has been stopped. If the timer does not exist, an error is
+// also returned.
+func (m *TimerMap) Reset(key string, timeout time.Duration) (bool, error) {
 	m.timersMtx.RLock()
 	t, ok := m.timers[key]
 	m.timersMtx.RUnlock()

@@ -26,7 +26,7 @@ import (
 type timerManager interface {
 	Add(key string, onTimeout func(), d time.Duration)
 	Remove(key string)
-	Renew(key string, d time.Duration) (bool, error)
+	Reset(key string, d time.Duration) (bool, error)
 }
 
 type grpcLockServer interface {
