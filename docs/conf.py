@@ -6,12 +6,11 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 import os
-from setuptools_scm import get_version
 
 project = 'LDLM'
 copyright = '2024, Google LLC'
 author = 'Ian Moore'
-release = get_version(root=os.path.abspath('../'))
+release = os.getenv("READTHEDOCS_VERSION_NAME", "latest")
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -25,6 +24,7 @@ exclude_patterns = []
 extensions = [
 	'myst_parser',
 	'sphinx_tabs.tabs',
+	'sphinx_copybutton',
 	'sphinx.ext.autosectionlabel',
 ]
 
