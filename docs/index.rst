@@ -12,20 +12,11 @@ LDLM
 .. centered::
 	Lightweight Distributed Lock Manager   
 
-Contents
-----------
 
-.. toctree::
-    :maxdepth: 2
+Documentation
+--------------------
 
-    overview
-    concepts
-    configuration
-    usage
-    uses
-    api
-    contributing
-    license
+Full documentation at `http://ldlm-docs.readthedocs.io/`_.
 
 Disclaimer
 --------------------
