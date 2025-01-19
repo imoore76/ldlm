@@ -22,13 +22,7 @@ exclude_patterns = []
 
 # sphinxcontrib-osexample
 extensions = [
-	'myst_parser',
-	'sphinx_tabs.tabs',
-	'sphinx_copybutton',
-	'sphinx.ext.autosectionlabel',
 ]
-
-autosectionlabel_prefix_document = True
 
 
 # -- Options for HTML output -------------------------------------------------
