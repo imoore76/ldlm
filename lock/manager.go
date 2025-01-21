@@ -258,11 +258,12 @@ func (m *Manager) Unlock(name string, key string) (bool, error) {
 // lockGc removes unused locks - unlocked and not accessed since <minIdle>
 func (m *Manager) lockGc(minIdle time.Duration) {
 
+	numDeleted := 0
+	slog.Debug("Starting lock garbage collection")
+
 	for _, shard := range m.shards {
 		shard.Lock()
 
-		slog.Debug("Starting lock garbage collection")
-		numDeleted := 0
 		for _, v := range shard.locks {
 			v.lockKey()
 			if len(v.keys) == 0 && time.Since(v.lastAccessed) > minIdle {
@@ -273,11 +274,9 @@ func (m *Manager) lockGc(minIdle time.Duration) {
 			}
 			v.unlockKey()
 		}
-		slog.Info(fmt.Sprintf("Lock garbage collection cleared %d locks", numDeleted))
-
 		shard.Unlock()
-
 	}
+	slog.Info(fmt.Sprintf("Lock garbage collection cleared %d locks", numDeleted))
 }
 
 // Locks returns a list of all locks
