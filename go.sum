@@ -37,8 +37,8 @@ github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUq
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/iancoleman/strcase v0.3.0 h1:nTXanmYxhfFAMjZL34Ov6gkzEsSJZ5DbhxWjvSASxEI=
 github.com/iancoleman/strcase v0.3.0/go.mod h1:iwCmte+B7n89clKwxIoIXy/HfoL7AsD47ZCWhYzw7ho=
-github.com/imoore76/configurature v1.0.2 h1:IPzNBJr3Z/XBoT60Ped96L/H3GognET21/ZgowNyUyE=
-github.com/imoore76/configurature v1.0.2/go.mod h1:GIEVhsqsoCHyVH2UZNwy3xXHGmYCg+K0VhERoZpNRKE=
+github.com/imoore76/configurature v1.0.3 h1:imH2Pf/Rr7grblWGLAVHiF8ffmv+H0CxY6jO9eHsHO4=
+github.com/imoore76/configurature v1.0.3/go.mod h1:mOKaBQxQGxytCPpLi4gTnGOUoDdcPHFt0E2geObwODE=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
