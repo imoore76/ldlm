@@ -9,8 +9,8 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.0
 	github.com/imoore76/configurature v1.0.3
 	github.com/stretchr/testify v1.10.0
-	google.golang.org/grpc v1.69.4
 	google.golang.org/protobuf v1.36.4
+	google.golang.org/grpc v1.70.0
 )
 
 require (
