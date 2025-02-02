@@ -16,12 +16,15 @@
 This file contains the Lock struct definition and its methods. Lock objects
 use channels to lock / unlock which allows for implementing a timeout when
 waiting to acquire a lock.
+
+TODO: https://pkg.go.dev/golang.org/x/sync/semaphore
 */
 package lock
 
 import (
 	"context"
 	"errors"
+	"slices"
 )
 
 var (
@@ -127,19 +130,12 @@ func (l *Lock) Unlock(key string) (bool, error) {
 	l.lockKey()
 	defer l.unlockKey()
 
-	found := false
-	newKeys := []string{}
-	for i := 0; i < len(l.keys); i++ {
-		if l.keys[i] == key && !found {
-			found = true
-		} else {
-			newKeys = append(newKeys, l.keys[i])
-		}
-	}
-	if !found {
+	at := slices.Index(l.keys, key)
+	if at < 0 {
 		return false, ErrInvalidLockKey
 	}
-	l.keys = newKeys
+
+	l.keys = slices.Delete(l.keys, at, at+1)
 	<-l.mtx
 	return true, nil
 }
