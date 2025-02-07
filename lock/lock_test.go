@@ -30,10 +30,9 @@ func TestLocking(t *testing.T) {
 	lctx := context.Background()
 	lk := lock.NewLock(lctx, 1)
 	ctx := context.Background()
-	ch := lk.Lock("key", ctx)
+	err := lk.Lock("key", ctx)
 
-	lr := <-ch
-	if err, ok := lr.(error); ok {
+	if err != nil {
 		assert.Fail("Could not obtain lock", err)
 		t.FailNow()
 	}
@@ -48,9 +47,9 @@ func TestLocking(t *testing.T) {
 	go func() {
 		// Wait for lock
 		started := time.Now()
-		ch := lk.Lock("otherkey", ctx)
+		err := lk.Lock("otherkey", ctx)
 		assert.Nil(err)
-		<-ch
+
 		assert.GreaterOrEqual(
 			time.Since(started),
 			(2 * time.Second),
@@ -98,15 +97,10 @@ func TestLockTimeout(t *testing.T) {
 		ErrTimeout,
 	)
 	defer cancel()
+	time.Sleep(100 * time.Millisecond)
 
-	ch := lk.Lock("foo", ctx)
-
-	lr := <-ch
-	if err, ok := lr.(error); !ok {
-		assert.Fail("Should not have been able to obtain lock")
-	} else {
-		assert.Equal(err, ErrTimeout)
-	}
+	err = lk.Lock("foo", ctx)
+	assert.Equal(ErrTimeout, err, "Lock should have timed out")
 
 }
 
@@ -169,23 +163,20 @@ func TestLock_Size(t *testing.T) {
 	lctx := context.Background()
 	lk := lock.NewLock(lctx, 3)
 
-	ch := lk.Lock("key", lctx)
-	lr := <-ch
-	if err, ok := lr.(error); ok {
+	err := lk.Lock("key", lctx)
+	if err != nil {
 		assert.Fail("Could not obtain lock", err)
 		t.FailNow()
 	}
 
-	ch = lk.Lock("key", lctx)
-	lr = <-ch
-	if err, ok := lr.(error); ok {
+	err = lk.Lock("key", lctx)
+	if err != nil {
 		assert.Fail("Could not obtain lock", err)
 		t.FailNow()
 	}
 
-	ch = lk.Lock("key", lctx)
-	lr = <-ch
-	if err, ok := lr.(error); ok {
+	err = lk.Lock("key", lctx)
+	if err != nil {
 		assert.Fail("Could not obtain lock", err)
 		t.FailNow()
 	}
@@ -194,13 +185,8 @@ func TestLock_Size(t *testing.T) {
 	done := make(chan struct{})
 	var locked bool
 	go func() {
-		ch = lk.Lock("key", ctx)
-		lr = <-ch
-		if _, ok := lr.(error); ok {
-			locked = false
-		} else {
-			locked = true
-		}
+		err = lk.Lock("key", ctx)
+		locked = (err == nil)
 		close(done)
 	}()
 	time.Sleep(100 * time.Millisecond)

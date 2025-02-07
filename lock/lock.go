@@ -37,16 +37,16 @@ type Lock struct {
 	keys   []string
 	mtx    chan struct{}
 	keyMtx chan struct{}
-	ctx    context.Context
+	mgrCtx context.Context // Lock manager context
 }
 
-func NewLock(ctx context.Context, n int32) *Lock {
+func NewLock(mgrCtx context.Context, n int32) *Lock {
 	return &Lock{
 		size:   n,
 		keys:   []string{},
 		keyMtx: make(chan struct{}, 1),
 		mtx:    make(chan struct{}, n),
-		ctx:    ctx,
+		mgrCtx: mgrCtx,
 	}
 }
 
@@ -57,8 +57,8 @@ func (l *Lock) Size() int32 {
 
 // Keys returns the lock's keys
 func (l *Lock) Keys() []string {
-	l.lockKey()
-	defer l.unlockKey()
+	l.lockKeys()
+	defer l.unlockKeys()
 	keysCopy := make([]string, len(l.keys))
 	copy(keysCopy, l.keys)
 	return keysCopy
@@ -67,52 +67,45 @@ func (l *Lock) Keys() []string {
 // lockKey locks the lock's key for inspection / setting to avoid race
 // conditions. It uses a channel instead of a mutex which seems a little more
 // performant when profiling
-func (l *Lock) lockKey() {
+func (l *Lock) lockKeys() {
 	l.keyMtx <- struct{}{}
 }
 
 // lockKey locks the lock's key mutex
-func (l *Lock) unlockKey() {
+func (l *Lock) unlockKeys() {
 	<-l.keyMtx
 }
 
 // Lock blocks until the lock is obtained or is canceled / timed out by context
-// and returns a channel with the result. The interface returned will be either
-// a struct{} (meaning the lock was acquired) or an error
-func (l *Lock) Lock(key string, ctx context.Context) <-chan interface{} {
-	rChan := make(chan interface{})
-	go func() {
-		if l.ctx.Err() != nil {
-			rChan <- l.ctx.Err()
-			return
-		}
+// and an error that will be either be nil (meaning the lock was acquired) or
+// the error that occurred
+func (l *Lock) Lock(key string, ctx context.Context) error {
 
-		select {
-		case l.mtx <- struct{}{}:
-			l.lockKey()
-			defer l.unlockKey()
-			l.keys = append(l.keys, key)
-			rChan <- struct{}{}
-		case <-ctx.Done(): // Cancelled or timed out
-			rChan <- context.Cause(ctx)
-		case <-l.ctx.Done():
-			rChan <- context.Cause(l.ctx)
-		}
-	}()
-	return rChan
+	var err error
+	select {
+	case <-ctx.Done():
+		// Cancelled or timed out
+		err = context.Cause(ctx)
+	case <-l.mgrCtx.Done():
+		// Lock manager shutdown
+		err = context.Cause(l.mgrCtx)
+	case l.mtx <- struct{}{}:
+		l.lockKeys()
+		defer l.unlockKeys()
+		l.keys = append(l.keys, key)
+	}
+	return err
 }
 
 // TryLock tries to obtain the lock and immediately fails or succeeds
 func (l *Lock) TryLock(key string) (bool, error) {
-	// Return context error if it exists
-	if l.ctx.Err() != nil {
-		return false, l.ctx.Err()
-	}
-
 	select {
+	case <-l.mgrCtx.Done():
+		// Lock manager shutdown
+		return false, context.Cause(l.mgrCtx)
 	case l.mtx <- struct{}{}:
-		l.lockKey()
-		defer l.unlockKey()
+		l.lockKeys()
+		defer l.unlockKeys()
 		l.keys = append(l.keys, key)
 		return true, nil
 	default:
@@ -123,12 +116,15 @@ func (l *Lock) TryLock(key string) (bool, error) {
 // Unlock surprisingly unlocks the lock
 func (l *Lock) Unlock(key string) (bool, error) {
 	// Return context error if it exists
-	if l.ctx.Err() != nil {
-		return false, l.ctx.Err()
+	select {
+	case <-l.mgrCtx.Done():
+		// Lock manager shutdown
+		return false, context.Cause(l.mgrCtx)
+	default:
 	}
 
-	l.lockKey()
-	defer l.unlockKey()
+	l.lockKeys()
+	defer l.unlockKeys()
 
 	at := slices.Index(l.keys, key)
 	if at < 0 {
