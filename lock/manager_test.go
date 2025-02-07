@@ -31,11 +31,10 @@ func TestLockGc(t *testing.T) {
 	lm, cancelFunc := lock.NewManager(2, time.Second, time.Second)
 	defer cancelFunc()
 
-	ch, err := lm.Lock("mylock", "key", 1, context.Background())
+	err := lm.Lock("mylock", "key", 1, context.Background())
 	assert.Nil(err)
 
-	lr := <-ch
-	if err, ok := lr.(error); ok {
+	if err != nil {
 		assert.Fail("Could not obtain lock: %v", err.Error())
 		t.FailNow()
 	}
@@ -69,7 +68,7 @@ func TestShutdown_ManagerLock(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	_, err := lm.Lock("mylock", "key", 1, context.Background())
+	err := lm.Lock("mylock", "key", 1, context.Background())
 	assert.ErrorIs(lock.ErrManagerShutdown, err)
 }
 
@@ -92,12 +91,10 @@ func TestManagedLock(t *testing.T) {
 	lm, cancelFunc := lock.NewManager(2, time.Hour, time.Hour)
 	defer cancelFunc()
 
-	ch, err := lm.Lock("mylock", "key", 1, ctx)
+	err := lm.Lock("mylock", "key", 1, ctx)
 	assert.Nil(err)
 
-	lr := <-ch
-
-	if err, ok := lr.(error); ok {
+	if err != nil {
 		assert.Fail("Could not obtain lock: %v", err.Error())
 		t.FailNow()
 	}
@@ -112,9 +109,9 @@ func TestManagedLock(t *testing.T) {
 	go func() {
 		// Wait for lock
 		started := time.Now()
-		ch, err := lm.Lock("mylock", "otherkey", 1, ctx)
+		err := lm.Lock("mylock", "otherkey", 1, ctx)
 		assert.Nil(err)
-		<-ch
+
 		assert.GreaterOrEqual(
 			time.Since(started),
 			(2 * time.Second),
@@ -163,15 +160,8 @@ func TestWaitManagedLockTimeout(t *testing.T) {
 	)
 	defer cancel()
 
-	ch, err := lm.Lock("lock", "", 1, ctx)
-	assert.Nil(err)
-
-	lr := <-ch
-	if err, ok := lr.(error); !ok {
-		assert.Fail("Should not have been able to obtain lock")
-	} else {
-		assert.Equal(err, ErrTimeout)
-	}
+	err = lm.Lock("lock", "", 1, ctx)
+	assert.Equal(ErrTimeout, err)
 
 }
 
@@ -227,12 +217,10 @@ func TestManager_InvalidSize(t *testing.T) {
 	lm, cancelFunc := lock.NewManager(2, time.Hour, time.Hour)
 	defer cancelFunc()
 
-	ch, err := lm.Lock("lock", "key", -2, context.Background())
+	err := lm.Lock("lock", "key", -2, context.Background())
 	assert.ErrorIs(lock.ErrInvalidLockSize, err)
-	assert.Nil(ch)
 
-	ch, err = lm.Lock("lock", "key", 0, context.Background())
+	err = lm.Lock("lock", "key", 0, context.Background())
 	assert.ErrorIs(lock.ErrInvalidLockSize, err)
-	assert.Nil(ch)
 
 }

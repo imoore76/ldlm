@@ -93,7 +93,6 @@ func New(c *LockServerConfig) (*LockServer, func(), error) {
 	ctx := context.Background()
 	for sessionId, locks := range sessionLocks {
 		for _, lk := range locks {
-
 			locked, err := l.lockMgr.TryLock(lk.Name(), lk.Key(), lk.Size())
 			if err != nil || !locked {
 				slog.Error("Error locking loaded locks lockMgr.TryLock()",
@@ -171,41 +170,17 @@ func (l *LockServer) Lock(ctx context.Context, name string, size *int32, lockTim
 	)
 
 	var (
-		locker <-chan interface{}
+		locked bool
 		err    error
 	)
 
 	if name == "" {
 		err = ErrEmptyName
 	} else {
-		locker, err = l.lockMgr.Lock(name, key, *size, lockCtx)
-	}
-	// Empty lock name or error from lockMgr.Lock
-	if err != nil {
-		ctxLog.Info(
-			"Lock response",
-			"lock", name,
-			"locked", false,
-			"error", err,
-		)
-		return &Lock{
-			Name:   name,
-			Locked: false,
-		}, err
+		err = l.lockMgr.Lock(name, key, *size, lockCtx)
 	}
 
-	// Wait for lock response
-	lr := <-locker
-
-	var (
-		lrErr  error = nil
-		locked       = false
-	)
-
-	// Error from lockMgr.Lock channel
-	if err, ok := lr.(error); ok {
-		lrErr = err
-	} else {
+	if err == nil {
 		// Lock acquired if an error wasn't returned
 		locked = true
 
@@ -224,14 +199,14 @@ func (l *LockServer) Lock(ctx context.Context, name string, size *int32, lockTim
 		"lock", name,
 		"key", key,
 		"locked", locked,
-		"error", lrErr,
+		"error", err,
 	)
 
 	return &Lock{
 		Name:   name,
 		Locked: locked,
 		Key:    key,
-	}, lrErr
+	}, err
 }
 
 // Unlock surprisingly, unlocks a lock...

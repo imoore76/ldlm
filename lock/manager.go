@@ -193,22 +193,22 @@ func (m *Manager) getLock(name string, create bool, size int32) (*ManagedLock, e
 
 // Lock obtains a lock on the named lock. It blocks until a lock is obtained or is canceled or
 // timed out by context
-func (m *Manager) Lock(name string, key string, size int32, ctx context.Context) (<-chan interface{}, error) {
+func (m *Manager) Lock(name string, key string, size int32, ctx context.Context) error {
 	m.shutdownMtx.RLock()
 	defer m.shutdownMtx.RUnlock()
 
 	if m.isShutdown {
-		return nil, ErrManagerShutdown
+		return ErrManagerShutdown
 	}
 
 	l, err := m.getLock(name, true, size)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if l.deleted {
 		panic(fmt.Sprintf("Tried to lock deleted lock %s", name))
 	}
-	return l.Lock.Lock(key, ctx), nil
+	return l.Lock.Lock(key, ctx)
 }
 
 // TryLock tries lock the named lock and immediately fails / succeeds
@@ -246,11 +246,11 @@ func (m *Manager) Unlock(name string, key string) (bool, error) {
 	if l == nil {
 		return false, ErrLockDoesNotExist
 	}
-	l.lockKey()
+	l.lockKeys()
 	if l.deleted {
 		return false, ErrLockDoesNotExist
 	}
-	l.unlockKey()
+	l.unlockKeys()
 
 	return l.Lock.Unlock(key)
 }
@@ -265,14 +265,14 @@ func (m *Manager) lockGc(minIdle time.Duration) {
 		shard.Lock()
 
 		for _, v := range shard.locks {
-			v.lockKey()
+			v.lockKeys()
 			if len(v.keys) == 0 && time.Since(v.lastAccessed) > minIdle {
 				v.deleted = true
 				close(v.mtx)
 				delete(shard.locks, v.Name)
 				numDeleted++
 			}
-			v.unlockKey()
+			v.unlockKeys()
 		}
 		shard.Unlock()
 	}

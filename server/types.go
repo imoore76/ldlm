@@ -43,7 +43,7 @@ type LockServerConfig struct {
 }
 
 type lockManager interface {
-	Lock(name string, key string, size int32, ctx context.Context) (<-chan interface{}, error)
+	Lock(name string, key string, size int32, ctx context.Context) error
 	TryLock(name string, key string, size int32) (bool, error)
 	Unlock(name string, key string) (bool, error)
 }
