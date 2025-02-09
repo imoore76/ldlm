@@ -268,7 +268,6 @@ func (m *Manager) lockGc(minIdle time.Duration) {
 			v.lockKeys()
 			if len(v.keys) == 0 && time.Since(v.lastAccessed) > minIdle {
 				v.deleted = true
-				close(v.mtx)
 				delete(shard.locks, v.Name)
 				numDeleted++
 			}

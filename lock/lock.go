@@ -23,6 +23,8 @@ import (
 	"context"
 	"errors"
 	"slices"
+
+	sem "golang.org/x/sync/semaphore"
 )
 
 var (
@@ -33,7 +35,7 @@ var (
 type Lock struct {
 	size   int32
 	keys   []string
-	mtx    chan struct{}
+	sw     sem.Weighted
 	keyMtx chan struct{}
 	mgrCtx context.Context // Lock manager context
 }
@@ -43,8 +45,9 @@ func NewLock(mgrCtx context.Context, n int32) *Lock {
 	return &Lock{
 		size:   n,
 		keys:   []string{},
+		sw:     *sem.NewWeighted(int64(n)),
 		keyMtx: make(chan struct{}, 1),
-		mtx:    make(chan struct{}, n),
+		// mtx:    make(chan struct{}, n),
 		mgrCtx: mgrCtx,
 	}
 }
@@ -78,18 +81,22 @@ func (l *Lock) unlockKeys() {
 // the error that occurred.
 func (l *Lock) Lock(key string, ctx context.Context) error {
 
-	var err error
-	select {
-	case <-ctx.Done():
-		// Cancelled or timed out
-		err = context.Cause(ctx)
-	case <-l.mgrCtx.Done():
-		// Lock manager shutdown
-		err = context.Cause(l.mgrCtx)
-	case l.mtx <- struct{}{}:
-		l.addKey(key)
+	lockCtx, cancel := context.WithCancelCause(ctx)
+	defer context.AfterFunc(l.mgrCtx, func() {
+		cancel(context.Cause(l.mgrCtx))
+	})()
+
+	err := l.sw.Acquire(lockCtx, 1)
+	if err != nil {
+		if l.mgrCtx.Err() != nil {
+			err = context.Cause(l.mgrCtx)
+		} else if lockCtx.Err() != nil {
+			err = context.Cause(lockCtx)
+		}
+		return err
 	}
-	return err
+	l.addKey(key)
+	return nil
 }
 
 // TryLock tries to obtain the lock and immediately fails or succeeds.
@@ -98,10 +105,11 @@ func (l *Lock) TryLock(key string) (bool, error) {
 	case <-l.mgrCtx.Done():
 		// Lock manager shutdown
 		return false, context.Cause(l.mgrCtx)
-	case l.mtx <- struct{}{}:
-		l.addKey(key)
-		return true, nil
 	default:
+		if l.sw.TryAcquire(1) {
+			l.addKey(key)
+			return true, nil
+		}
 		return false, nil
 	}
 }
@@ -121,7 +129,8 @@ func (l *Lock) Unlock(key string) (bool, error) {
 	if !removed {
 		err = ErrInvalidLockKey
 	} else {
-		<-l.mtx
+		// Attempt to release the lock
+		l.sw.Release(1)
 	}
 	return removed, err
 }

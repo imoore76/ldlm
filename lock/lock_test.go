@@ -104,6 +104,28 @@ func TestLockTimeout(t *testing.T) {
 
 }
 
+func TestLockCancel(t *testing.T) {
+	assert := assert.New(t)
+
+	shutdowndErr := errors.New("server shutdown")
+
+	lctx, cancel := context.WithCancelCause(context.Background())
+	lk := lock.NewLock(lctx, 1)
+	locked, err := lk.TryLock("key")
+	assert.Nil(err)
+	assert.True(locked)
+
+	var lockErr error
+	done := make(chan struct{})
+	go func() {
+		lockErr = lk.Lock("foo", lctx)
+		close(done)
+	}()
+	cancel(shutdowndErr)
+	<-done
+	assert.ErrorIs(shutdowndErr, lockErr)
+}
+
 func TestUnlockInvalidKey(t *testing.T) {
 	assert := assert.New(t)
 
