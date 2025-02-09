@@ -16,8 +16,6 @@
 This file contains the Lock struct definition and its methods. Lock objects
 use channels to lock / unlock which allows for implementing a timeout when
 waiting to acquire a lock.
-
-TODO: https://pkg.go.dev/golang.org/x/sync/semaphore
 */
 package lock
 
@@ -40,6 +38,7 @@ type Lock struct {
 	mgrCtx context.Context // Lock manager context
 }
 
+// NewLock returns a lock object with the given size.
 func NewLock(mgrCtx context.Context, n int32) *Lock {
 	return &Lock{
 		size:   n,
@@ -50,23 +49,21 @@ func NewLock(mgrCtx context.Context, n int32) *Lock {
 	}
 }
 
-// Size returns the lock's size
+// Size returns the lock's size.
 func (l *Lock) Size() int32 {
 	return l.size
 }
 
-// Keys returns the lock's keys
+// Keys returns the lock's keys.
 func (l *Lock) Keys() []string {
 	l.lockKeys()
 	defer l.unlockKeys()
-	keysCopy := make([]string, len(l.keys))
-	copy(keysCopy, l.keys)
-	return keysCopy
+	return slices.Clone(l.keys)
 }
 
-// lockKey locks the lock's key for inspection / setting to avoid race
+// lockKey locks the lock's keys for inspection / setting to avoid race
 // conditions. It uses a channel instead of a mutex which seems a little more
-// performant when profiling
+// performant when profiling.
 func (l *Lock) lockKeys() {
 	l.keyMtx <- struct{}{}
 }
@@ -78,7 +75,7 @@ func (l *Lock) unlockKeys() {
 
 // Lock blocks until the lock is obtained or is canceled / timed out by context
 // and an error that will be either be nil (meaning the lock was acquired) or
-// the error that occurred
+// the error that occurred.
 func (l *Lock) Lock(key string, ctx context.Context) error {
 
 	var err error
@@ -90,30 +87,26 @@ func (l *Lock) Lock(key string, ctx context.Context) error {
 		// Lock manager shutdown
 		err = context.Cause(l.mgrCtx)
 	case l.mtx <- struct{}{}:
-		l.lockKeys()
-		defer l.unlockKeys()
-		l.keys = append(l.keys, key)
+		l.addKey(key)
 	}
 	return err
 }
 
-// TryLock tries to obtain the lock and immediately fails or succeeds
+// TryLock tries to obtain the lock and immediately fails or succeeds.
 func (l *Lock) TryLock(key string) (bool, error) {
 	select {
 	case <-l.mgrCtx.Done():
 		// Lock manager shutdown
 		return false, context.Cause(l.mgrCtx)
 	case l.mtx <- struct{}{}:
-		l.lockKeys()
-		defer l.unlockKeys()
-		l.keys = append(l.keys, key)
+		l.addKey(key)
 		return true, nil
 	default:
 		return false, nil
 	}
 }
 
-// Unlock surprisingly unlocks the lock
+// Unlock surprisingly unlocks the lock.
 func (l *Lock) Unlock(key string) (bool, error) {
 	// Return context error if it exists
 	select {
@@ -123,15 +116,34 @@ func (l *Lock) Unlock(key string) (bool, error) {
 	default:
 	}
 
+	var err error
+	removed := l.removeKey(key)
+	if !removed {
+		err = ErrInvalidLockKey
+	} else {
+		<-l.mtx
+	}
+	return removed, err
+}
+
+// addKey adds a key to the lock's keys.
+func (l *Lock) addKey(key string) {
+	l.lockKeys()
+	defer l.unlockKeys()
+	l.keys = append(l.keys, key)
+}
+
+// removeKey removes a key from the lock's keys. It returns false if the key
+// does not exist.
+func (l *Lock) removeKey(key string) bool {
 	l.lockKeys()
 	defer l.unlockKeys()
 
 	at := slices.Index(l.keys, key)
 	if at < 0 {
-		return false, ErrInvalidLockKey
+		return false
 	}
 
 	l.keys = slices.Delete(l.keys, at, at+1)
-	<-l.mtx
-	return true, nil
+	return true
 }
