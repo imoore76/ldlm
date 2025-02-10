@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"sync"
 
 	sem "golang.org/x/sync/semaphore"
 )
@@ -36,7 +37,7 @@ type Lock struct {
 	size   int32
 	keys   []string
 	sw     sem.Weighted
-	keyMtx chan struct{}
+	keyMtx sync.Mutex
 	mgrCtx context.Context // Lock manager context
 }
 
@@ -46,8 +47,6 @@ func NewLock(mgrCtx context.Context, n int32) *Lock {
 		size:   n,
 		keys:   []string{},
 		sw:     *sem.NewWeighted(int64(n)),
-		keyMtx: make(chan struct{}, 1),
-		// mtx:    make(chan struct{}, n),
 		mgrCtx: mgrCtx,
 	}
 }
@@ -59,21 +58,20 @@ func (l *Lock) Size() int32 {
 
 // Keys returns the lock's keys.
 func (l *Lock) Keys() []string {
-	l.lockKeys()
-	defer l.unlockKeys()
+	l.keyMtx.Lock()
+	defer l.keyMtx.Unlock()
 	return slices.Clone(l.keys)
 }
 
 // lockKey locks the lock's keys for inspection / setting to avoid race
-// conditions. It uses a channel instead of a mutex which seems a little more
-// performant when profiling.
+// conditions.
 func (l *Lock) lockKeys() {
-	l.keyMtx <- struct{}{}
+	l.keyMtx.Lock()
 }
 
 // lockKey locks the lock's key mutex
 func (l *Lock) unlockKeys() {
-	<-l.keyMtx
+	l.keyMtx.Unlock()
 }
 
 // Lock blocks until the lock is obtained or is canceled / timed out by context
@@ -137,16 +135,16 @@ func (l *Lock) Unlock(key string) (bool, error) {
 
 // addKey adds a key to the lock's keys.
 func (l *Lock) addKey(key string) {
-	l.lockKeys()
-	defer l.unlockKeys()
+	l.keyMtx.Lock()
+	defer l.keyMtx.Unlock()
 	l.keys = append(l.keys, key)
 }
 
 // removeKey removes a key from the lock's keys. It returns false if the key
 // does not exist.
 func (l *Lock) removeKey(key string) bool {
-	l.lockKeys()
-	defer l.unlockKeys()
+	l.keyMtx.Lock()
+	defer l.keyMtx.Unlock()
 
 	at := slices.Index(l.keys, key)
 	if at < 0 {
