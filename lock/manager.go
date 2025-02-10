@@ -246,11 +246,12 @@ func (m *Manager) Unlock(name string, key string) (bool, error) {
 	if l == nil {
 		return false, ErrLockDoesNotExist
 	}
-	l.lockKeys()
+	l.keyMtx.Lock()
 	if l.deleted {
+		l.keyMtx.Unlock()
 		return false, ErrLockDoesNotExist
 	}
-	l.unlockKeys()
+	l.keyMtx.Unlock()
 
 	return l.Lock.Unlock(key)
 }
