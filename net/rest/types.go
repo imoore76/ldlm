@@ -25,7 +25,7 @@ import (
 
 type timerManager interface {
 	Add(key string, onTimeout func(), d time.Duration)
-	Remove(key string)
+	Remove(key string) bool
 	Reset(key string, d time.Duration) (bool, error)
 }
 

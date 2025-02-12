@@ -59,7 +59,8 @@ type sessionManager interface {
 
 type timerManager interface {
 	Add(key string, onTimeout func(), d time.Duration)
-	Remove(key string)
+	// Removes a timer. Returns true if the timer was stopped before firing or did not exist.
+	Remove(key string) bool
 	Reset(key string, d time.Duration) (bool, error)
 }
 

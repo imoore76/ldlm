@@ -47,7 +47,7 @@ var (
 // Lock server
 type LockServer struct {
 	lockMgr             lockManager
-	sessMgr             sessionManager
+	sessionMgr          sessionManager
 	lockTimerMgr        timerManager
 	isShutdown          atomic.Bool
 	noClearOnDisconnect bool
@@ -71,7 +71,7 @@ func New(c *LockServerConfig) (*LockServer, func(), error) {
 	l := &LockServer{
 		isShutdown:          atomic.Bool{},
 		lockMgr:             lm,
-		sessMgr:             session.NewManager(&c.SessionConfig),
+		sessionMgr:          session.NewManager(&c.SessionConfig),
 		noClearOnDisconnect: c.NoClearOnDisconnect,
 	}
 
@@ -80,7 +80,7 @@ func New(c *LockServerConfig) (*LockServer, func(), error) {
 	l.lockTimerMgr = timeMgr
 
 	// Load locks from session manager
-	sessionLocks, err := l.sessMgr.Load()
+	sessionLocks, err := l.sessionMgr.Load()
 	if err != nil {
 		return nil, func() {
 			l.isShutdown.Store(true)
@@ -98,8 +98,8 @@ func New(c *LockServerConfig) (*LockServer, func(), error) {
 				slog.Error("Error locking loaded locks lockMgr.TryLock()",
 					"name", lk.Name(), "key", lk.Key(), "error", err.Error(),
 				)
-				// Locking failed, remove the loaded lock from sessMgr
-				l.sessMgr.RemoveLock(lk.Name(), lk.Key(), sessionId)
+				// Locking failed, remove the loaded lock from sessionMgr
+				l.sessionMgr.RemoveLock(lk.Name(), lk.Key(), sessionId)
 				continue
 			}
 			l.lockTimerMgr.Add(
@@ -184,8 +184,8 @@ func (l *LockServer) Lock(ctx context.Context, name string, size *int32, lockTim
 		// Lock acquired if an error wasn't returned
 		locked = true
 
-		// Add lock to sessMgr
-		l.sessMgr.AddLock(name, key, *size, sessionId)
+		// Add lock to sessionMgr
+		l.sessionMgr.AddLock(name, key, *size, sessionId)
 
 		// Add lock timer if lock timeout is set
 		if lockTimeoutSeconds != nil && *lockTimeoutSeconds > 0 {
@@ -223,12 +223,24 @@ func (l *LockServer) Unlock(ctx context.Context, name string, key string) (bool,
 		"key", key,
 	)
 
-	unlocked, err := l.lockMgr.Unlock(name, key)
+	var (
+		err      error
+		unlocked bool
+	)
+
+	// Remove lock timer. If the timer was not removed before it fired (not stopped),
+	// it will have already unlocked the lock.
+	if stopped := l.lockTimerMgr.Remove(name + key); stopped {
+		// It was stopped before firing or did not exist. Unlock the lock.
+		unlocked, err = l.lockMgr.Unlock(name, key)
+	} else {
+		// The timer was not stopped before firing, so it has already unlocked the lock.
+		unlocked = true
+	}
 
 	if unlocked {
 		// Remove from lock map and lock timer
-		l.sessMgr.RemoveLock(name, key, sessionId)
-		l.lockTimerMgr.Remove(name + key)
+		l.sessionMgr.RemoveLock(name, key, sessionId)
 	}
 
 	ctxLog.Info(
@@ -279,8 +291,8 @@ func (l *LockServer) TryLock(ctx context.Context, name string, size *int32, lock
 	}
 
 	if locked {
-		// Add lock to sessMgr
-		l.sessMgr.AddLock(name, key, *size, sessionId)
+		// Add lock to sessionMgr
+		l.sessionMgr.AddLock(name, key, *size, sessionId)
 
 		// Add lock timer if lock timeout is set
 		if lockTimeoutSeconds != nil && *lockTimeoutSeconds > 0 {
@@ -344,7 +356,7 @@ func (l *LockServer) Renew(ctx context.Context, name string, key string, lockTim
 // Locks returns a list of client locks.
 func (l *LockServer) Locks() []cl.Lock {
 	locks := []cl.Lock{}
-	for _, ll := range l.sessMgr.Locks() {
+	for _, ll := range l.sessionMgr.Locks() {
 		locks = append(locks, ll...)
 	}
 	return locks
@@ -372,7 +384,7 @@ func (l *LockServer) CreateSession(ctx context.Context, sessionInfo map[string]a
 
 	ctx = context.WithValue(ctx, sessionCtxKey, sessionId)
 	ctx = log.ToContext(cxLogger, ctx)
-	l.sessMgr.CreateSession(sessionId)
+	l.sessionMgr.CreateSession(sessionId)
 
 	return sessionId, ctx
 }
@@ -390,7 +402,7 @@ func (l *LockServer) DestroySession(ctx context.Context) (sessionId string) {
 	ctxLog := log.FromContextOrDefault(ctx)
 	ctxLog.Info("Session ended")
 
-	locks := l.sessMgr.DestroySession(sessionId)
+	locks := l.sessionMgr.DestroySession(sessionId)
 
 	if l.noClearOnDisconnect || len(locks) == 0 {
 		return
@@ -452,6 +464,6 @@ func (l *LockServer) onTimeoutFunc(ctx context.Context, name string, key string,
 				)
 			}
 		}()
-		l.sessMgr.RemoveLock(name, key, sessionId)
+		l.sessionMgr.RemoveLock(name, key, sessionId)
 	}
 }
