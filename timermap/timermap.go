@@ -59,16 +59,18 @@ func (m *TimerMap) Add(key string, onTimeout func(), timeout time.Duration) {
 	)
 }
 
-// Remove removes a timer from the map
-func (m *TimerMap) Remove(key string) {
+// Remove removes a timer from the map. Returns true if the timer was stopped.
+func (m *TimerMap) Remove(key string) bool {
 	m.timersMtx.Lock()
 	defer m.timersMtx.Unlock()
 
+	stopped := true
 	if _, ok := m.timers[key]; ok {
-		m.timers[key].Stop()
+		stopped = m.timers[key].Stop()
 		delete(m.timers, key)
 	}
 
+	return stopped
 }
 
 // Reset resets a timer. It returns true if the timer was reset, false if the timer
