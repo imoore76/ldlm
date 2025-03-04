@@ -4,7 +4,7 @@ go 1.23.3
 
 require (
 	github.com/alecthomas/kong v1.8.1
-	github.com/deneonet/benc v1.1.6
+	github.com/deneonet/benc v1.1.7
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1
 	github.com/imoore76/configurature v1.0.5
