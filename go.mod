@@ -1,6 +1,7 @@
 module github.com/imoore76/ldlm
 
-go 1.23.3
+go 1.23.4
+
 toolchain go1.24.1
 
 require (
@@ -11,7 +12,7 @@ require (
 	github.com/imoore76/configurature v1.1.0
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sync v0.14.0
-	google.golang.org/grpc v1.72.0
+	google.golang.org/grpc v1.72.1
 	google.golang.org/protobuf v1.36.6
 )
 
