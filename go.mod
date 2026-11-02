@@ -3,7 +3,7 @@ module github.com/imoore76/ldlm
 go 1.26.0
 
 require (
-	github.com/alecthomas/kong v1.16.1
+	github.com/alecthomas/kong v1.17.0
 	github.com/deneonet/benc v1.1.8
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.31.0
